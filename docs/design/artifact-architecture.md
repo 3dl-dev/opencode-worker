@@ -84,5 +84,6 @@ installing selects it.
     added from measured episodes, never invented);
   - grow the graded loop: more tasks/targets, and route each divergence to the target's delta
     overlay or the driver protocol (spec §7b);
-  - hoistable owns the cross-compile that emits a pack per target and the authoritative graded
-    transfer score; the pack grade here is the connector's local honest-outcome record.
+  - skillc owns the cross-compile that emits a pack per target and the authoritative graded
+    transfer score (grounding: `loss = score(reference) - score(target)`); the pack grade here is
+    the connector's local honest-outcome record, which is this consumer's own acceptance encoding.

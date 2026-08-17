@@ -1,7 +1,7 @@
 # opencode-worker
 
 Connect Claude Code to an **arbitrary (OpenCode, model) worker**, subscription-safe, and make
-any given (model, harness) reliable with a hoistable cross-compile that carries a graded
+any given (model, harness) reliable with a skillc cross-compile that carries a graded
 transfer score.
 
 ## Why this exists
@@ -34,7 +34,7 @@ agentic multi-step work, live mid-turn correction, and permission approval under
   skill-pack. `scripts/build_agent.py` compiles a pack and installs its active agent.
 - **Protocol contract** (`protocol/opencode-worker-protocol.md`): the model-neutral prose the
   worker runs under. Per-model deltas are added only by measured divergence. This is what
-  `hoist` cross-compiles per target; the graded transfer score proves the retarget worked.
+  `skillc` cross-compiles per target; the graded transfer score proves the retarget worked.
 - **Worker agent** (`.opencode/agent/opencode-worker.md`): the protocol delivered as an OpenCode
   agent's system prompt, not prepended to each task. `scripts/build_agent.py` compiles it from
   the protocol (single source of truth); OpenCode loads it at server startup. The driver binds
@@ -93,6 +93,6 @@ Working solution at the connector level, now exposed as an MCP server for Claude
 (`src/opencode_worker_mcp.py` + `.mcp.json`). Next: expand the graded co-optimization loop
 across more tasks and targets (routing each divergence to the model delta or the driver
 protocol); deliver the protocol as a system prompt via agent config (not prepended to the
-task); bundle as a hoistable skill (`skills/opencode-worker/`).
+task); bundle as a skillc self-building skill (`skills/opencode-worker/`).
 
 Spec of record: `dap:docs/specs/opencode-worker-integration.md`.

@@ -35,7 +35,7 @@ the task). Compile the pack for the target and install its active agent:
 
 - `python3 scripts/build_agent.py --provider <p> --model <m> --quant <q>` compiles the protocol
   into `packs/<target>/` and installs the active agent (settings, incl. our-side permission
-  gating, are its frontmatter). A model/quant/settings not seen before is hoistable's
+  gating, are its frontmatter). A model/quant/settings not seen before is skillc's
   cross-compile.
 - Start `opencode serve` FROM the repo root so it loads the agent (agents load at startup only).
 
@@ -65,4 +65,4 @@ Each divergence between the worker and a strong-model reference routes to whiche
 wrong: a per-target delta overlay (worker prose) or the driver protocol/implementation. The
 graded transfer score, earned on a real result in the worker's own session, is the proof and
 cannot be faked. Package emitted targets with their full triple, deltas, and earned grade;
-hoistable owns the cross-compile and the score.
+skillc owns the cross-compile and grounding (the comparative transfer grade).

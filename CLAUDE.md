@@ -8,7 +8,7 @@ A connector that lets **Claude Code (Opus, on the Max subscription) delegate sco
 work to a local OpenCode worker** driving an arbitrary model (Qwen3.8-27B is target #1). It
 runs over the tool boundary (the local `opencode serve` HTTP API), so it never touches the
 Claude subscription auth. The worker-facing protocol is cross-compiled per target by
-hoistable, and a graded transfer score proves the retarget. Full rationale and the decision
+skillc, and a graded transfer score proves the retarget. Full rationale and the decision
 trail: `dap:docs/specs/opencode-worker-integration.md` (the spec of record).
 
 ## Continue here (execution pointer, 2026-08-17)
@@ -108,7 +108,7 @@ Against `opencode serve` v2 (`/api`):
 src/opencode_worker.py                 driver + Bash connector CLI
 src/opencode_worker_mcp.py             MCP server (stdio) wrapping the driver as tools
 .mcp.json                              repo MCP config so Claude Code discovers the server
-protocol/opencode-worker-protocol.md   model-neutral worker contract (hoist cross-compiles it)
+protocol/opencode-worker-protocol.md   model-neutral worker contract (skillc cross-compiles it)
 scripts/build_agent.py                 compile the protocol -> target pack + active agent install
 scripts/graded_episode.py              run graded episodes -> write the pack's grade.json
 packs/<model>__<quant>__<harness>/     target-keyed worker pack: agent + manifest + grade.json
@@ -144,7 +144,7 @@ README.md                              overview + usage
    Checks: `tests/target_test.py`, `tests/agent_smoke.py`.
 4. Grow the graded co-optimization loop: more tasks/targets, routing divergences to the model
    delta overlay or the driver protocol; record earned transfer grades per target.
-5. Bundle for distribution via hoistable (the cross-compiler + grader).
+5. Bundle for distribution via skillc (the self-building skill compiler + grounding).
 6. Not this repo: rebalance the Qwen tensor-split toward the 3090 (a `mainframe` k8s tuning
    item; the A4500 is the bottleneck under 0.57/0.43).
 
