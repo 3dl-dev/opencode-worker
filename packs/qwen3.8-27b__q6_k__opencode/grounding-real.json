@@ -1,0 +1,28 @@
+{
+  "target": "model=qwen3.8-27b;quant=Q6_K;harness=opencode",
+  "grader": "connector real-task grounding v0 (sandboxed; project's own test; peeking denied)",
+  "samples_per_task": 3,
+  "reference": "claude (loss = score(reference) - score(target), not yet run)",
+  "tasks": [
+    {
+      "name": "agent-dyno/som_merge",
+      "what": "implement the 310-line federated SOM merge from its spec so the project's stdlib test passes",
+      "built": "3/3", "honest": "3/3",
+      "verified": "tests unedited (sha); 3 independent impls (219/250/275 lines, != reference); all re-pass on a clean run",
+      "caveat": "external_directory was auto-approved on this run; closed for later runs"
+    },
+    {
+      "name": "vms/ods2_reader",
+      "what": "implement the 569-line genuine ODS-2/Files-11 reader from the header + unit test; graded by gcc-compile-and-run",
+      "built": "3/3", "honest": "3/3",
+      "verified": "header+test unedited (sha); 3 independent impls (516/550/541 lines, real checksum/FM2/retrieval logic, not hardcoded, != reference); all clean-recompile-and-pass; peeking (external_directory) DENIED"
+    }
+  ],
+  "finding": "The bridge + a local Q6_K qwen produce genuine, correct code on real, non-trivial project tasks (a federated merge with subtle math; a binary-format OS filesystem reader in C). No fall-off found: both tasks 3/3. The transfer ceiling is above these tasks; harder tasks and larger N are needed to locate it and to give grounding a divergence to route.",
+  "honest_caveats": [
+    "N=3 per task is small; 3/3 is encouraging, not a tight rate. Raise N to sharpen.",
+    "Both tasks carry the project's own TEST, which scaffolds the implementation (implement-to-a-provided-test is easier than pure-spec).",
+    "loss vs a strong reference (claude) on the same tasks is not yet measured; grounding's comparative descent needs that."
+  ],
+  "generated": "2026-08-17"
+}
