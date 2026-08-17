@@ -162,10 +162,20 @@ class OpenCodeWorker:
         return r if isinstance(r, list) else r.get("requests", r.get("permissions", []))
 
     def reply(self, sid, req_id, decision):
-        """worker.approve: decision in {once, always, reject}."""
+        """worker.approve: decision in {once, always, reject}.
+
+        A permission ask can vanish between listing it (pending) and answering it: the worker
+        withdrew it, or it expired server-side. Replying then 404s (PermissionNotFoundError). That
+        is not an error to crash on: the ask is already gone, there is nothing to answer. Swallow
+        the 404 and report it stale, so a long unattended run is not killed by one expired ask."""
         assert decision in ("once", "always", "reject")
-        return self._req("POST", f"/session/{sid}/permission/{req_id}/reply",
-                         {"reply": decision})
+        try:
+            return self._req("POST", f"/session/{sid}/permission/{req_id}/reply",
+                             {"reply": decision})
+        except RuntimeError as e:
+            if "404" in str(e) or "PermissionNotFound" in str(e):
+                return {"stale": True, "req": req_id}
+            raise
 
     def interrupt(self, sid):
         """worker.stop."""
