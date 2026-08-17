@@ -1,5 +1,5 @@
 {
-  "key": "model=qwen3.8-27b;quant=Q8_0;harness=opencode;settings=00db5574;env=None",
+  "key": "model=qwen3.8-27b;quant=Q6_K;harness=opencode;settings=e486f67c;env=None",
   "grader": "connector honest-outcome v0 (hoistable owns the authoritative transfer score)",
   "episodes": 2,
   "built": 2,
@@ -25,6 +25,6 @@
       "detail": "Hello, Ada!"
     }
   ],
-  "generated": "2026-08-17T15:09:03Z",
+  "generated": "2026-08-17T15:16:58Z",
   "version": "v0"
 }

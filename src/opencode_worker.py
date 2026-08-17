@@ -16,21 +16,27 @@ import os, json, time, re, hashlib, urllib.request, urllib.error
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # A TARGET is (model, quant, harness, settings, env); every axis is a parameter, none a fixture.
-# opencode is harness #1 and qwen3.8-27b @ Q8_0 is model #1 - defaults only. `model` is the
+# opencode is harness #1 and qwen3.8-27b @ Q6_K+MTP is model #1 - defaults only. `model` is the
 # wire-safe object OpenCode accepts on POST /session ({providerID,id,variant} only); quant and
 # settings are SIBLING axes (OpenCode rejects extra keys inside `model`), so the worker pack can
 # still be keyed by them.
 DEFAULT_MODEL = {"providerID": "mainframe-qwen38", "id": "qwen3.8-27b"}
+# Ground truth of the live endpoint (confirmed via /props model_path + mainframe/docs/ops/
+# qwen38-serve.md): the served weights are Qwen3.8-27B-**Q6_K** imatrix GGUF, run with MTP
+# speculative decoding (`--spec-type draft-mtp`, ~47 tok/s, draft acceptance 0.69). NOT Q8_0 -
+# the unsloth Q8_0 carries no MTP head. The pack is quant/settings sensitive, so this must match.
 # Serving/behavior settings that key the pack. `permission` is OUR-side gating: the mutating and
 # external tools ask (the driver decides), read-only tools stay allowed so the worker can explore
-# without gate spam. Compiled into the agent frontmatter by scripts/build_agent.py.
+# without gate spam. `spec_decode` records the MTP draft mode (lossless speedup, part of the
+# declared config). Compiled into the agent frontmatter by scripts/build_agent.py.
 DEFAULT_SETTINGS = {
     "context": 262144,
     "thinking": True,
+    "spec_decode": "draft-mtp",
     "permission": {"edit": "ask", "bash": "ask", "webfetch": "ask",
                    "websearch": "ask", "external_directory": "ask"},
 }
-DEFAULT_TARGET = {"model": DEFAULT_MODEL, "quant": "Q8_0", "harness": "opencode",
+DEFAULT_TARGET = {"model": DEFAULT_MODEL, "quant": "Q6_K", "harness": "opencode",
                   "settings": DEFAULT_SETTINGS, "env": None}
 AGENT_NAME = "opencode-worker"
 

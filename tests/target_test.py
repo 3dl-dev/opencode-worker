@@ -27,7 +27,7 @@ t["settings"] = dict(reversed(list(DEFAULT_TARGET["settings"].items())))
 assert resolve_artifacts(t)["key"] == base["key"], "settings sig must be order-stable"
 
 # the CLI/MCP-shaped target resolves to the same key as DEFAULT_TARGET
-cli = {"model": {"providerID": "mainframe-qwen38", "id": "qwen3.8-27b"}, "quant": "Q8_0",
+cli = {"model": dict(DEFAULT_TARGET["model"]), "quant": DEFAULT_TARGET["quant"],
        "harness": "opencode", "settings": DEFAULT_SETTINGS, "env": None}
 assert resolve_artifacts(cli)["key"] == base["key"], "CLI-shaped target must match default key"
 

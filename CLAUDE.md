@@ -83,7 +83,9 @@ Against `opencode serve` v2 (`/api`):
   flag, so polling the session alone hangs to budget. The driver's `_turn_status`/`overall_status`
   encode this; use them, not `_status_of(session(...))`.
 - Qwen is single-slot (`--parallel 1`): do NOT run two worker sessions at once, they serialize.
-  It is slow (~44 tok/s with thinking on); budget 120s+ per agentic turn.
+  It runs ~47 tok/s (Q6_K imatrix + MTP draft-mtp speculative decoding, thinking on; the served
+  file is Qwen3.8-27B-Q6_K.gguf, NOT Q8_0 - confirm via `/props` model_path); budget 120s+ per
+  agentic turn.
 - `nvidia-smi` inside the serve container shows "No running processes" and 0% util when idle
   (a PID-namespace artifact + P8 idle state), not a fault. To confirm the GPU is live, sample
   util during a real generation.

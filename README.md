@@ -25,9 +25,9 @@ agentic multi-step work, live mid-turn correction, and permission approval under
   via the repo `.mcp.json`. Same inner call path, same subscription-safety.
 - **Target** = `(model, quant, harness, settings, environment)`, every axis a parameter.
   `resolve_artifacts(target)` keys the worker pack (agent / settings / deltas / grade) by the full
-  target, because it is model/quant/settings sensitive. OpenCode is harness #1, Qwen3.8-27B @ Q8_0
-  is model #1, none a fixture. `quant` and `settings` are siblings of `model` (OpenCode's wire
-  model object takes only providerID/id/variant).
+  target, because it is model/quant/settings sensitive. OpenCode is harness #1, Qwen3.8-27B @
+  Q6_K + MTP (the live served config, ~47 tok/s) is model #1, none a fixture. `quant` and
+  `settings` are siblings of `model` (OpenCode's wire model object takes only providerID/id/variant).
 - **Two sides** (`docs/design/artifact-architecture.md`): a Claude-side orchestrator **skill**
   (target-agnostic, `skills/opencode-worker/`) drives the worker; an opencode-side **worker pack**
   (`packs/<model>__<quant>__<harness>/`) carries the target's agent/system-prompt, settings, and

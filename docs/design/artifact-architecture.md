@@ -35,9 +35,9 @@ are **sibling** axes on the target, never folded into `model`:
 ```
 {
   "model":    {"providerID": "mainframe-qwen38", "id": "qwen3.8-27b"},  # wire-safe
-  "quant":    "Q8_0",
+  "quant":    "Q6_K",                                                   # the served weights (not Q8_0)
   "harness":  "opencode",
-  "settings": {"context": 262144, "thinking": true},                    # behavior-affecting
+  "settings": {"context": 262144, "thinking": true, "spec_decode": "draft-mtp", ...},
   "env":      null
 }
 ```
