@@ -19,10 +19,23 @@ the model supplies the generality. Deterministic tools are invoked only where de
 its place: the connector driver (a stable API client) and the pack compile. Hardware, model,
 quant, and provider are open sets handled by the agent's reasoning, never a hardcoded matrix.
 
-## The pipeline
+## Two distinct units, one seam
+
+Setting up the inference and binding Claude Code to it are DIFFERENT units, not one flow:
+
+- **opencode-setup (the wizard)** owns DISCOVER -> DECIDE -> PROVISION -> VERIFY-REACHABLE. It
+  ends at a model opencode can actually reach and the `(model, quant, settings)` it stood up.
+- **opencode-worker (the binder)** owns COMPILE -> DRIVE -> GRADE -> CROSS-COMPILE. It takes that
+  target and makes Opus able to drive it as a worker.
+
+The seam is the **target**: setup produces one, the binder consumes it. Keeping them separate
+means the wizard can serve any environment without dragging in connector internals, and the
+connector stays a clean driver that assumes a target exists.
+
+## The pipeline (both units)
 
 ```
-DISCOVER -> DECIDE -> PROVISION -> COMPILE -> VERIFY
+[ setup: DISCOVER -> DECIDE -> PROVISION -> VERIFY-reachable ]  ==target==>  [ binder: COMPILE -> DRIVE -> GRADE ]
 ```
 
 - **DISCOVER (orient to the user, do not just probe).** Configs run from nothing to a veteran
