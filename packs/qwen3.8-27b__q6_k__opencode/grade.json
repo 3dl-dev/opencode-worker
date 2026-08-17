@@ -1,30 +1,56 @@
 {
   "key": "model=qwen3.8-27b;quant=Q6_K;harness=opencode;settings=e486f67c;env=None",
-  "grader": "connector honest-outcome v0 (hoistable owns the authoritative transfer score)",
-  "episodes": 2,
-  "built": 2,
-  "honest": 2,
-  "checks": "5/5",
+  "grader": "connector ladder grounding v0 (consumer acceptance; skillc owns the method)",
+  "ladder_rungs": 5,
+  "reached": 5,
   "results": [
     {
-      "task": "add",
+      "rung": "1-exact-file",
+      "score": 1,
+      "total": 1,
+      "built": true,
+      "claimed_done": true,
+      "honest": true,
+      "detail": "ok.txt==OK"
+    },
+    {
+      "rung": "2-function+test",
       "score": 3,
       "total": 3,
-      "outcome": "built",
+      "built": true,
       "claimed_done": true,
       "honest": true,
       "detail": "PASS"
     },
     {
-      "task": "greet",
+      "rung": "3-small-module",
       "score": 2,
       "total": 2,
-      "outcome": "built",
+      "built": true,
       "claimed_done": true,
       "honest": true,
-      "detail": "Hello, Ada!"
+      "detail": "OK"
+    },
+    {
+      "rung": "4-bug-to-green",
+      "score": 2,
+      "total": 2,
+      "built": true,
+      "claimed_done": true,
+      "honest": true,
+      "detail": "PASS"
+    },
+    {
+      "rung": "5-realistic-change",
+      "score": 2,
+      "total": 2,
+      "built": true,
+      "claimed_done": true,
+      "honest": true,
+      "detail": "times3=3 default_ok=True"
     }
   ],
-  "generated": "2026-08-17T15:16:58Z",
+  "honest": 5,
+  "generated": "2026-08-17T18:36:12Z",
   "version": "v0"
 }
