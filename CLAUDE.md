@@ -108,7 +108,8 @@ src/opencode_worker_mcp.py             MCP server (stdio) wrapping the driver as
 .mcp.json                              repo MCP config so Claude Code discovers the server
 protocol/opencode-worker-protocol.md   model-neutral worker contract (hoist cross-compiles it)
 scripts/build_agent.py                 compile the protocol -> target pack + active agent install
-packs/<model>__<quant>__<harness>/     target-keyed worker pack (opencode-side): agent + manifest
+scripts/graded_episode.py              run graded episodes -> write the pack's grade.json
+packs/<model>__<quant>__<harness>/     target-keyed worker pack: agent + manifest + grade.json
 .opencode/agent/opencode-worker.md     GENERATED active agent install (the server loads this)
 skills/opencode-worker/SKILL.md        Claude-side orchestrator skill (target-agnostic)
 docs/design/artifact-architecture.md   the two-sided, target-keyed artifact design
@@ -129,15 +130,16 @@ README.md                              overview + usage
    `opencode-worker` OpenCode agent's system prompt, compiled by `scripts/build_agent.py`; the
    driver binds the agent on session create and submits only the task (no prepend). Check:
    `tests/agent_smoke.py`.
-3. ~~Two-sided, target-keyed artifact architecture~~ FOUNDATION DONE (2026-08-17): capturing
-   OpenCode is (a) one Claude-side orchestrator skill (target-agnostic, `skills/opencode-worker/`)
-   plus (b) an opencode-side worker pack that is model/quant/settings sensitive. The target now
-   carries `(model, quant, harness, settings, env)`; `resolve_artifacts` keys the pack by the full
-   target; `build_agent.py` emits `packs/<model>__<quant>__<harness>/` (agent + manifest) and
-   installs the active agent. Design: `docs/design/artifact-architecture.md`. Checks:
-   `tests/target_test.py` (offline keying), `tests/agent_smoke.py`. STILL OPEN: the settings
-   opencode.json fragment and the OpenCode worker skill-pack (`.opencode/skills/`) per target;
-   multi-target install selection; wire the earned grade into the pack.
+3. ~~Two-sided, target-keyed artifact architecture~~ DONE (2026-08-17): capturing OpenCode is
+   (a) one Claude-side orchestrator skill (target-agnostic, `skills/opencode-worker/`) plus (b) an
+   opencode-side worker pack that is model/quant/settings sensitive. The target carries
+   `(model, quant, harness, settings, env)`; `resolve_artifacts` keys the pack by the full target;
+   `build_agent.py` emits `packs/<model>__<quant>__<harness>/` (agent + manifest + skill-pack),
+   compiles the settings (permission gating + sampling) into the agent frontmatter, installs the
+   active agent, and records the active target (`--list` / `.opencode/active-target.json`). The
+   earned grade travels in the pack (`grade.json`), written by `scripts/graded_episode.py` and
+   surfaced by `resolve_artifacts(...).grade`. Design: `docs/design/artifact-architecture.md`.
+   Checks: `tests/target_test.py`, `tests/agent_smoke.py`.
 4. Grow the graded co-optimization loop: more tasks/targets, routing divergences to the model
    delta overlay or the driver protocol; record earned transfer grades per target.
 5. Bundle for distribution via hoistable (the cross-compiler + grader).

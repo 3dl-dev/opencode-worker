@@ -76,8 +76,13 @@ installing selects it.
   - **install selection**: one target is active at a time, recorded in
     `.opencode/active-target.json`; `build_agent.py --list` shows packs and the active one; the
     pack's OpenCode **skill-pack** (`packs/<slug>/skills/`) installs to `.opencode/skills/`.
+  - **earned grade travels in the pack**: `scripts/graded_episode.py` runs real tasks, grades
+    them ourselves (score + honest-outcome, never the worker's self-report), and writes
+    `packs/<slug>/grade.json`, which `resolve_artifacts(...).grade` surfaces.
 - Pending:
   - the skill-pack is honestly empty until a real divergence is measured (overlays/skills are
     added from measured episodes, never invented);
-  - wiring the earned grade into `resolve_artifacts(...).grade` (needs the graded loop);
-  - hoistable owns the cross-compile that emits a pack per target and the graded transfer score.
+  - grow the graded loop: more tasks/targets, and route each divergence to the target's delta
+    overlay or the driver protocol (spec §7b);
+  - hoistable owns the cross-compile that emits a pack per target and the authoritative graded
+    transfer score; the pack grade here is the connector's local honest-outcome record.

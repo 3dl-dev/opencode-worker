@@ -10,7 +10,10 @@ This is the reusable inner call path the MCP surface (worker.start/steer/approve
 and the graded co-optimization loop both wrap. Proof-first in scratch; moves to hoistable
 once validated live.
 """
-import json, time, re, hashlib, urllib.request, urllib.error
+import os, json, time, re, hashlib, urllib.request, urllib.error
+
+# Repo root, so resolve_artifacts can read a pack's earned grade regardless of caller cwd.
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # A TARGET is (model, quant, harness, settings, env); every axis is a parameter, none a fixture.
 # opencode is harness #1 and qwen3.8-27b @ Q8_0 is model #1 - defaults only. `model` is the
@@ -60,6 +63,15 @@ def resolve_artifacts(target):
     key = f"model={mid};quant={quant};harness={harness};settings={sig};env={env}"
     slug = _slug(f"{mid}__{quant}__{harness}")
     pack_dir = f"packs/{slug}"
+    # The earned grade travels IN the pack: scripts/graded_episode.py writes grade.json there.
+    grade = None
+    gpath = os.path.join(_ROOT, pack_dir, "grade.json")
+    if os.path.exists(gpath):
+        try:
+            with open(gpath) as f:
+                grade = json.load(f)
+        except (OSError, ValueError):
+            grade = None
     return {
         "key": key,
         # opencode-side worker pack (target-keyed source) + the active install the server loads
@@ -74,7 +86,7 @@ def resolve_artifacts(target):
         # Claude-side orchestrator skill: one skill, target-agnostic, NOT part of the pack.
         "skill_claude": "skills/opencode-worker/SKILL.md",
         "deltas": ["qwen-opencode"] if mid == "qwen3.8-27b" else [],
-        "grade": None,          # -> filled from the transfer-score record for this target
+        "grade": grade,         # the pack's earned honest-outcome grade, or None if unearned
         "version": "v0",
     }
 
