@@ -56,6 +56,12 @@ Against `opencode serve` v2 (`/api`):
   `POST /session/{id}/permission/{id}/reply` with `{reply:"once"|"always"|"reject"}`. Gate a
   tool by setting `permission: {<tool>: "ask"}` in `opencode.json` (per-tool allow/ask/deny;
   `bash` takes wildcard maps). A workdir-local `opencode.json` scopes it to that session.
+- The session object (`GET /session/{id}`) has NO usable status/completion field here (`status`
+  is absent, `time` has only created/updated). Turn state must be read from the newest assistant
+  message's `finish`: `tool-calls` = mid-turn step (keep polling), `stop`/`length` = done,
+  `error` = failed turn (with an `error` object). An errored turn does NOT flip any session-level
+  flag, so polling the session alone hangs to budget. The driver's `_turn_status`/`overall_status`
+  encode this; use them, not `_status_of(session(...))`.
 - Qwen is single-slot (`--parallel 1`): do NOT run two worker sessions at once, they serialize.
   It is slow (~44 tok/s with thinking on); budget 120s+ per agentic turn.
 - `nvidia-smi` inside the serve container shows "No running processes" and 0% util when idle
@@ -78,16 +84,22 @@ Against `opencode serve` v2 (`/api`):
 
 ```
 src/opencode_worker.py                 driver + Bash connector CLI
+src/opencode_worker_mcp.py             MCP server (stdio) wrapping the driver as tools
+.mcp.json                              repo MCP config so Claude Code discovers the server
 protocol/opencode-worker-protocol.md   model-neutral worker contract (hoist cross-compiles it)
 skills/opencode-worker/SKILL.md        the hoistable/Claude-Code skill that bundles this
-tests/smoke.py                         re-runnable end-to-end check
+tests/smoke.py                         re-runnable end-to-end check (library path)
+tests/mcp_smoke.py                     re-runnable end-to-end check (MCP stdio path)
 tests/evidence/                        the original proof scripts (scratch paths; historical)
 README.md                              overview + usage
 ```
 
 ## Next
 
-1. Wrap the connector as an MCP server (cleaner Claude Code integration than the Bash CLI).
+1. ~~Wrap the connector as an MCP server~~ DONE (2026-08-17): `src/opencode_worker_mcp.py`
+   (FastMCP stdio) + `.mcp.json`; tools start/steer/pending/approve/status/final/stop/run.
+   Re-runnable check: `tests/mcp_smoke.py`. Remaining polish: system prompt via agent config
+   (item 3) so the protocol is not prepended to the task prompt.
 2. Grow the graded co-optimization loop: more tasks/targets, routing divergences to the model
    delta overlay or the driver protocol; record earned transfer grades per target.
 3. Proper artifact placement: skill to `.opencode/skills/<name>/SKILL.md`, system prompt via

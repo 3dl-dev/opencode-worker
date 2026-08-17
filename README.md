@@ -20,6 +20,9 @@ agentic multi-step work, live mid-turn correction, and permission approval under
 - **Driver / connector** (`src/opencode_worker.py`): drives `opencode serve` over its HTTP
   API. Bash-callable verbs, JSON out: `start / steer / pending / approve / status / final /
   stop / run`. The Opus loop drives a worker session through these.
+- **MCP server** (`src/opencode_worker_mcp.py`): the same control surface as MCP tools over
+  stdio, so Claude Code drives a worker with tool calls instead of the Bash CLI. Discovered
+  via the repo `.mcp.json`. Same inner call path, same subscription-safety.
 - **Target** = `(model, harness, environment)`, every axis a parameter. `resolve_artifacts(target)`
   keys the skill / system-prompt / deltas / grade by the full target. OpenCode is harness #1,
   Qwen3.8-27B is model #1, neither is a fixture.
@@ -57,12 +60,26 @@ python3 src/opencode_worker.py final   --session ses_...
 python3 src/opencode_worker.py run --dir /path/to/work --task "..." --auto once
 ```
 
+Or drive it from Claude Code as an **MCP server** (same control surface, cleaner than the CLI).
+The repo `.mcp.json` registers it, so Claude Code exposes the tools `mcp__opencode-worker__{start,
+steer, pending, approve, status, final, stop, run}`. Run it standalone with:
+
+```bash
+OPENCODE_BASE=http://127.0.0.1:47611/api python3 src/opencode_worker_mcp.py   # stdio
+```
+
+`final` returns the worker's self-report, which is a claim, not evidence: ground-truth the real
+result yourself before treating a task as built (the honest grade). Re-runnable end-to-end check:
+`python3 tests/mcp_smoke.py`.
+
 Subscription-safe: the connector only ever talks to the local opencode server.
 
 ## Status
 
-Working solution at the connector level. Next: wrap as an MCP server; expand the graded
-co-optimization loop across more tasks and targets (routing each divergence to the model
-delta or the driver protocol); bundle as a hoistable skill (`skills/opencode-worker/`).
+Working solution at the connector level, now exposed as an MCP server for Claude Code
+(`src/opencode_worker_mcp.py` + `.mcp.json`). Next: expand the graded co-optimization loop
+across more tasks and targets (routing each divergence to the model delta or the driver
+protocol); deliver the protocol as a system prompt via agent config (not prepended to the
+task); bundle as a hoistable skill (`skills/opencode-worker/`).
 
 Spec of record: `dap:docs/specs/opencode-worker-integration.md`.

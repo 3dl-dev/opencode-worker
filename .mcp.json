@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "opencode-worker": {
+      "command": "python3",
+      "args": ["src/opencode_worker_mcp.py"],
+      "env": {
+        "OPENCODE_BASE": "http://127.0.0.1:47611/api"
+      }
+    }
+  }
+}

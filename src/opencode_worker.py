@@ -113,10 +113,14 @@ class OpenCodeWorker:
                 dec = approve(p)
                 self.reply(sid, self.req_id(p), dec)
                 print(f"[worker] permission {self.describe(p)} -> {dec}", flush=True)
-            status = self._status_of(self.session(sid))
+            status = self._turn_status(sid)
             if status != last:
                 print(f"[worker] status={status}", flush=True); last = status
-            if status in ("idle", "completed", "done", "error"):
+            if status == "error":
+                err = self._turn_error(sid)
+                print(f"[worker] error: {err.get('message', err)}", flush=True)
+                break
+            if status in ("idle", "completed", "done"):
                 break
             time.sleep(poll)
         return sid, self._last_assistant(sid)
@@ -141,6 +145,48 @@ class OpenCodeWorker:
         if isinstance(t, dict) and t.get("completed"):
             return "idle"
         return "running"
+
+    def _newest_assistant(self, sid):
+        """The newest assistant message by creation time, or None. Turn status/finish/error all
+        derive from this: opencode's session object carries no reliable status here."""
+        newest, newest_t = None, -1
+        for m in self.messages(sid):
+            if m.get("type") != "assistant":
+                continue
+            tm = m.get("time")
+            t = tm.get("created", 0) if isinstance(tm, dict) else (tm or 0)
+            if t >= newest_t:
+                newest_t, newest = t, m
+        return newest
+
+    def _turn_status(self, sid):
+        """Turn status derived from the newest assistant message, since opencode's session object
+        exposes no completion/status field. Terminal finishes: 'stop'/'length' -> idle (done);
+        'error' (or an error field) -> error. An intermediate agentic step finishes with
+        'tool-calls' and is NOT terminal (the turn continues) -> running. No assistant message
+        yet, or one still generating, is also running. So this never cuts a healthy multi-step
+        turn short, but it does detect real completion (which the session status never reports)."""
+        m = self._newest_assistant(sid)
+        if not m:
+            return "running"
+        if m.get("finish") == "error" or m.get("error"):
+            return "error"
+        tm = m.get("time") or {}
+        completed = isinstance(tm, dict) and tm.get("completed")
+        if completed and m.get("finish") in ("stop", "length"):
+            return "idle"
+        return "running"
+
+    def _turn_error(self, sid):
+        """The error on the newest assistant message if it finished with one, else None."""
+        m = self._newest_assistant(sid)
+        if m and (m.get("finish") == "error" or m.get("error")):
+            return m.get("error") or {"type": "error", "message": "turn finished with error"}
+        return None
+
+    def overall_status(self, sid):
+        """Public turn status: running | idle | error (see _turn_status)."""
+        return self._turn_status(sid)
 
     def _last_assistant(self, sid):
         # messages: type in {assistant,user,system}; assistant.content is a list of typed
@@ -187,7 +233,7 @@ if __name__ == "__main__":
     elif a.cmd == "approve":
         w.reply(a.session, a.req, a.decision); print(_json.dumps({"ok": True, "decision": a.decision}))
     elif a.cmd == "status":
-        print(_json.dumps({"status": w._status_of(w.session(a.session))}))
+        print(_json.dumps({"status": w.overall_status(a.session)}))
     elif a.cmd == "final":
         print(w._last_assistant(a.session) or "")
     elif a.cmd == "stop":
