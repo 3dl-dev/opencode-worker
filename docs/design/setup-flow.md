@@ -25,10 +25,12 @@ quant, and provider are open sets handled by the agent's reasoning, never a hard
 DISCOVER -> DECIDE -> PROVISION -> COMPILE -> VERIFY
 ```
 
-- **DISCOVER (probe).** What is here? GPUs and VRAM-per-card, CPU/RAM, OS/arch; is opencode
-  installed; is a model already served (endpoint reachable); which API keys exist in the env.
-  Output: a candidate set -- local options (which model@quant fit the VRAM at the wanted context)
-  and API options (which providers are reachable). No side effects.
+- **DISCOVER (orient to the user, do not just probe).** Configs run from nothing to a veteran
+  whose accelerators sit behind networking or a cluster that no command reveals - a silent
+  `nvidia-smi` means nothing. Much of a real rig is knowledge only the user holds, so establish
+  it WITH them: ask what they have and want, gauge newbie-to-devoperator, and probe only where it
+  confirms something they named. Output: the situation as the user and the evidence together
+  describe it, and the viable directions (capture / local / API). No side effects.
 - **DECIDE (target selection).** Pick local-vs-API and the concrete `(model, quant, settings)`.
   Quant-fitting is a real heuristic: largest quant that fits VRAM with the desired KV cache (data
   points in `mainframe/docs/ops/qwen38-serve.md`: Q6_K weights 23.5 GB, 262K KV in 44 GB with

@@ -10,11 +10,12 @@ worker (OpenCode driving any configured model) over the tool boundary, so nothin
 Claude subscription auth. You approve the worker's permission gates, may steer it mid-run, and
 NEVER trust its self-report: you verify with real checks.
 
-**This is a skill, not a program.** Where you set the worker up, you use judgment on what you
-actually find: run the commands, read the output, reason about it, adapt. Nothing below is a
-fixed matrix of hardware/models/providers to match against; it is the procedure and the cues.
-Fall back to the deterministic tools (the connector driver, the pack compile) only where they
-belong.
+**This is a skill, not a program.** You, the executing agent, are the general part. Nothing below
+is a fixed matrix of hardware/models/providers to match against, and setup is NOT a canned probe
+sequence: environments run from nothing to a veteran's rig that no command will reveal, and much
+of any real setup is knowledge only the user holds. Meet them where they are - ask what only they
+know, probe only where it confirms something, reason about what comes back, adapt. Fall back to
+the deterministic tools (the connector driver, the pack compile) only where determinism belongs.
 
 ## When to use
 
@@ -27,12 +28,16 @@ judgment calls or work you cannot independently grade.
 Aim: end at a graded, working worker. Move through discover -> decide -> provision -> compile
 -> verify, reasoning at each step from what is actually there.
 
-1. **Discover.** Look, do not assume. Is a model already served? (curl the provider baseURLs in
-   `~/.config/opencode/opencode.json`, or the endpoint you were told; llama.cpp `/props` reports
-   `model_path`, from which you can read the quant.) Is `opencode` installed (`opencode
-   --version`)? Is there a GPU and how much VRAM (`nvidia-smi`)? Are there API keys in the env
-   (any `*_API_KEY`)? Whatever you find is the situation; handle it, do not force it into a
-   category.
+1. **Discover - orient to the user; do not assume you can detect their setup.** Configs run from
+   nothing to a veteran whose GPUs sit behind custom networking or a cluster that NO probe will
+   reveal - a silent `nvidia-smi` proves nothing, it does not mean "no GPU". So establish the
+   situation WITH the user. Ask where they are and what they have: a model already served
+   somewhere (get the endpoint)? local accelerators they want to use (and how they are reached)?
+   only an API key? nothing yet? Gauge their expertise from newbie to devoperator and match your
+   level of hand-holding to it. Probe only where a probe genuinely helps and only as confirmation
+   of something plausible (curl an endpoint they named and read `/props`; `opencode --version`;
+   `nvidia-smi` for a *local* card). The user is the authority on their own environment: when the
+   config is idiosyncratic or invisible, ask, do not guess.
 
 2. **Decide** the target `(model, quant, harness, settings, env)`. Default policy, adapt as
    sense dictates: if a rig is already serving a model, **capture it** (no install). Else, if
