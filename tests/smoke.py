@@ -24,16 +24,14 @@ for f in os.listdir(WD):
     try: os.remove(os.path.join(WD, f))
     except OSError: pass
 
-PROTO = ("You are an OpenCode worker under a strict protocol. Do exactly the task and nothing "
-         "more. The outcome is binary: reply DONE only if the required result is actually "
-         "present; otherwise reply HONEST-FAILURE. Never claim success on a failing check.")
+# The worker protocol is delivered as the worker agent's system prompt (see
+# tests/agent_smoke.py and scripts/build_agent.py), NOT prepended here: we submit only the task.
 TASK = ("TASK: In your working directory create a file smoke.txt containing exactly the word "
         "OK (uppercase). Then reply DONE only if the file was written.")
 
 w = OpenCodeWorker(BASE)
 print("target:", resolve_artifacts(DEFAULT_TARGET)["key"], flush=True)
-sid, final = w.run(PROTO + "\n\n" + TASK, WD, target=DEFAULT_TARGET,
-                   approve=lambda p: "once", budget=260)
+sid, final = w.run(TASK, WD, target=DEFAULT_TARGET, approve=lambda p: "once", budget=260)
 p = os.path.join(WD, "smoke.txt")
 ok = os.path.exists(p) and open(p).read().strip().upper().startswith("OK")
 print("session:", sid)

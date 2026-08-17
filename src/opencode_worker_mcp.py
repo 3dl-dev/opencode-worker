@@ -38,16 +38,19 @@ def _target(provider: str, model: str) -> dict:
 @mcp.tool()
 def start(task: str, directory: str,
           provider: str = DEFAULT_MODEL["providerID"],
-          model: str = DEFAULT_MODEL["id"]) -> dict:
+          model: str = DEFAULT_MODEL["id"], agent: str = "") -> dict:
     """Create a worker session for (provider, model) in `directory` and submit `task`.
 
-    Returns {session}. The session id (ses_...) is the handle for every other tool. This does
-    not block for completion: poll `status`, service `pending`, and read `final` yourself.
-    `directory` should be an absolute path the worker is allowed to edit in.
+    Returns {session, target, agent}. The session id (ses_...) is the handle for every other
+    tool. This does not block for completion: poll `status`, service `pending`, and read `final`
+    yourself. `directory` should be an absolute path the worker is allowed to edit in. The worker
+    runs under an OpenCode agent whose system prompt is the protocol, so submit ONLY the task,
+    not the protocol; `agent` defaults to the target's resolved agent (leave empty).
     """
-    sid = _worker.start(task, directory, target=_target(provider, model))
     art = resolve_artifacts(_target(provider, model))
-    return {"session": sid, "target": art["key"], "deltas": art["deltas"]}
+    sid = _worker.start(task, directory, target=_target(provider, model), agent=agent or None)
+    return {"session": sid, "target": art["key"], "agent": agent or art.get("agent"),
+            "deltas": art["deltas"]}
 
 
 @mcp.tool()
@@ -120,19 +123,20 @@ def stop(session: str) -> dict:
 def run(task: str, directory: str,
         provider: str = DEFAULT_MODEL["providerID"],
         model: str = DEFAULT_MODEL["id"],
-        auto: str = "once", budget: int = 600) -> dict:
+        auto: str = "once", budget: int = 600, agent: str = "") -> dict:
     """One-shot: start a session, auto-answer every permission with `auto`, block until the turn
     settles or `budget` seconds elapse, then return {session, final}.
 
     Convenience for fire-and-forget with a fixed permission policy. It BLOCKS and auto-approves,
     so it forfeits the two things the stepwise tools give you: per-ask permission control and
     live mid-turn steer. Prefer start + poll for anything you want to supervise. `final` is still
-    only the worker's claim: ground-truth it yourself. `auto` is once|always|reject.
+    only the worker's claim: ground-truth it yourself. `auto` is once|always|reject. Submit only
+    the task; `agent` defaults to the target's resolved agent (leave empty).
     """
     if auto not in ("once", "always", "reject"):
         raise ValueError("auto must be one of: once, always, reject")
     sid, fin = _worker.run(task, directory, target=_target(provider, model),
-                           approve=lambda p: auto, budget=budget)
+                           approve=lambda p: auto, budget=budget, agent=agent or None)
     return {"session": sid, "final": fin or ""}
 
 

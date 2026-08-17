@@ -28,7 +28,12 @@ def resolve_artifacts(target):
     return {
         "key": key,
         "skill": None,          # -> place at .opencode/skills/<name>/SKILL.md
-        "system_prompt": None,  # -> inject via agent config
+        # The protocol is delivered as this OpenCode agent's system prompt (compiled from
+        # protocol/opencode-worker-protocol.md into .opencode/agent/<agent>.md by
+        # scripts/build_agent.py), not prepended to the task. The driver names the agent on
+        # session create; the server must have loaded it at startup.
+        "agent": "opencode-worker",
+        "system_prompt": "protocol/opencode-worker-protocol.md",
         "deltas": ["qwen-opencode"] if model.get("id") == "qwen3.8-27b" else [],
         "grade": None,          # -> filled from the transfer-score record for this target
         "version": "v0",
@@ -58,13 +63,31 @@ class OpenCodeWorker:
         return obj
 
     # --- control surface ---------------------------------------------------
-    def start(self, task, directory, target=None):
-        """worker.start: create a session for `target` in `directory`, submit `task`."""
+    def agents(self):
+        """Agent ids the server loaded at startup (v2: id; v1: name)."""
+        r = self._req("GET", "/agent")
+        items = r if isinstance(r, list) else r.get("agents", [])
+        return [a.get("id") or a.get("name") for a in items]
+
+    def start(self, task, directory, target=None, agent=None):
+        """worker.start: create a session for `target` in `directory`, submit `task`.
+
+        The worker runs under an OpenCode agent whose system prompt IS the protocol (compiled to
+        .opencode/agent/<agent>.md by scripts/build_agent.py), so we submit only the task, never
+        the protocol. `agent` defaults to the target's resolved agent. The server loads agents at
+        startup only, so we check it is present and fail loud: an unknown agent otherwise creates
+        a session that silently stalls (no system prompt, no error)."""
         target = target or DEFAULT_TARGET
-        s = self._req("POST", "/session", {
-            "model": target["model"],
-            "location": {"directory": directory},
-        })
+        agent = agent or resolve_artifacts(target).get("agent")
+        if agent and agent not in self.agents():
+            raise RuntimeError(
+                f"agent '{agent}' is not loaded by the server. Compile it "
+                f"(python3 scripts/build_agent.py) and (re)start `opencode serve` from the repo "
+                f"root so .opencode/agent/{agent}.md is loaded. Loaded: {self.agents()}")
+        body = {"model": target["model"], "location": {"directory": directory}}
+        if agent:
+            body["agent"] = agent
+        s = self._req("POST", "/session", body)
         sid = s.get("id")
         if not sid:
             raise RuntimeError(f"no session id in create response: {json.dumps(s)[:300]}")
@@ -99,13 +122,15 @@ class OpenCodeWorker:
         return self._req("GET", f"/session/{sid}")
 
     # --- orchestration -----------------------------------------------------
-    def run(self, task, directory, target=None, approve=lambda p: "once", poll=3.0, budget=600):
+    def run(self, task, directory, target=None, approve=lambda p: "once", poll=3.0, budget=600,
+            agent=None):
         """Run a task to completion. `approve(permission)->decision` is the policy hook the
         driver routes to the Opus loop / operator. Prints one filtered line per event."""
         target = target or DEFAULT_TARGET
         art = resolve_artifacts(target)
-        print(f"[worker] target {art['key']} deltas={art['deltas']} grade={art['grade']}", flush=True)
-        sid = self.start(task, directory, target=target)
+        print(f"[worker] target {art['key']} agent={agent or art.get('agent')} "
+              f"deltas={art['deltas']} grade={art['grade']}", flush=True)
+        sid = self.start(task, directory, target=target, agent=agent)
         print(f"[worker] session {sid} started", flush=True)
         t0, last = time.time(), None
         while time.time() - t0 < budget:
@@ -214,6 +239,7 @@ if __name__ == "__main__":
     def _tgt_args(pp):
         pp.add_argument("--provider", default=DEFAULT_MODEL["providerID"])
         pp.add_argument("--model", default=DEFAULT_MODEL["id"])
+        pp.add_argument("--agent", default=None, help="worker agent (default: target's resolved agent)")
     ps = sub.add_parser("start"); ps.add_argument("--dir", required=True); ps.add_argument("--task", required=True); _tgt_args(ps)
     pt = sub.add_parser("steer"); pt.add_argument("--session", required=True); pt.add_argument("--msg", required=True)
     pp_ = sub.add_parser("pending"); pp_.add_argument("--session", required=True)
@@ -225,7 +251,7 @@ if __name__ == "__main__":
     a = ap.parse_args(); w = OpenCodeWorker(a.base)
     def _tgt(a): return {"model": {"providerID": a.provider, "id": a.model}, "harness": "opencode", "env": None}
     if a.cmd == "start":
-        print(_json.dumps({"session": w.start(a.task, a.dir, target=_tgt(a))}))
+        print(_json.dumps({"session": w.start(a.task, a.dir, target=_tgt(a), agent=a.agent)}))
     elif a.cmd == "steer":
         w.steer(a.session, a.msg); print(_json.dumps({"ok": True}))
     elif a.cmd == "pending":
@@ -239,5 +265,5 @@ if __name__ == "__main__":
     elif a.cmd == "stop":
         w.interrupt(a.session); print(_json.dumps({"ok": True}))
     elif a.cmd == "run":
-        sid, final = w.run(a.task, a.dir, target=_tgt(a), approve=lambda p: a.auto)
+        sid, final = w.run(a.task, a.dir, target=_tgt(a), approve=lambda p: a.auto, agent=a.agent)
         print(_json.dumps({"session": sid, "final": final}))

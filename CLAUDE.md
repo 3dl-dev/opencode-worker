@@ -27,7 +27,10 @@ delta overlay or the driver protocol (see the spec, section 7b).
 
 ## Environment and how to run
 
-- Start the server: `opencode serve --port 47611 --hostname 127.0.0.1 &`
+- Start the server FROM THE REPO ROOT so it loads the worker agent: `cd <repo> && opencode
+  serve --port 47611 --hostname 127.0.0.1 &`. The protocol is that agent's system prompt; if you
+  edit `protocol/opencode-worker-protocol.md`, re-run `python3 scripts/build_agent.py` and restart
+  the server (agents load at startup only, no hot reload).
 - Provider (already in `~/.config/opencode/opencode.json`): `mainframe-qwen38`, model
   `qwen3.8-27b`, pointing at the local endpoint `http://192.168.2.43:30801/v1`.
 - Bring the model up only if the GPU rail is free (it holds both GPUs and does not preempt;
@@ -35,7 +38,9 @@ delta overlay or the driver protocol (see the spec, section 7b).
   `kubectl scale deploy/qwen38-llama-serve --replicas=1` ... `--replicas=0`
   Health: `curl -s http://192.168.2.43:30801/health`. Runbook:
   `mainframe/docs/ops/qwen38-serve.md`.
-- Smoke test: `python3 tests/smoke.py` (expects the server up and the model served).
+- Smoke tests: `python3 tests/smoke.py` (library path), `python3 tests/mcp_smoke.py` (MCP stdio
+  path), `python3 tests/agent_smoke.py` (protocol-via-agent). All expect the server up (from the
+  repo root), the model served, and the worker agent loaded.
 - Drive a session by hand: `python3 src/opencode_worker.py {start,steer,pending,approve,status,final,stop,run} ...`
 
 ## Hard-won API facts (reference, do not rediscover)
@@ -56,6 +61,15 @@ Against `opencode serve` v2 (`/api`):
   `POST /session/{id}/permission/{id}/reply` with `{reply:"once"|"always"|"reject"}`. Gate a
   tool by setting `permission: {<tool>: "ask"}` in `opencode.json` (per-tool allow/ask/deny;
   `bash` takes wildcard maps). A workdir-local `opencode.json` scopes it to that session.
+- Deliver the worker protocol as an OpenCode **agent** system prompt, not prepended per task.
+  Agents load from `.opencode/agent/<name>.md` (frontmatter + body = the system prompt) at server
+  STARTUP ONLY: no hot reload, and `{file:...}` is NOT expanded in the `prompt`/body (it is stored
+  literally). So compile the agent from the protocol (`scripts/build_agent.py` writes the md) and
+  RESTART `opencode serve` from the repo root to load it. Sessions get `projectID:"global"`, so the
+  per-session `location.directory` is NOT scanned for agents: a workdir-local agent file does
+  nothing. Bind a session to the agent with `POST /session {agent:"<name>"}`; an unknown agent
+  name is accepted but the turn silently stalls (the driver's `start` guards against this).
+  Confirm what loaded via `GET /api/agent` (v2 fields: `id`, `system`).
 - The session object (`GET /session/{id}`) has NO usable status/completion field here (`status`
   is absent, `time` has only created/updated). Turn state must be read from the newest assistant
   message's `finish`: `tool-calls` = mid-turn step (keep polling), `stop`/`length` = done,
@@ -87,9 +101,12 @@ src/opencode_worker.py                 driver + Bash connector CLI
 src/opencode_worker_mcp.py             MCP server (stdio) wrapping the driver as tools
 .mcp.json                              repo MCP config so Claude Code discovers the server
 protocol/opencode-worker-protocol.md   model-neutral worker contract (hoist cross-compiles it)
+scripts/build_agent.py                 compile the protocol -> .opencode/agent/<name>.md
+.opencode/agent/opencode-worker.md     GENERATED worker agent (protocol as system prompt)
 skills/opencode-worker/SKILL.md        the hoistable/Claude-Code skill that bundles this
 tests/smoke.py                         re-runnable end-to-end check (library path)
 tests/mcp_smoke.py                     re-runnable end-to-end check (MCP stdio path)
+tests/agent_smoke.py                   re-runnable check: protocol delivered via agent config
 tests/evidence/                        the original proof scripts (scratch paths; historical)
 README.md                              overview + usage
 ```
@@ -98,12 +115,17 @@ README.md                              overview + usage
 
 1. ~~Wrap the connector as an MCP server~~ DONE (2026-08-17): `src/opencode_worker_mcp.py`
    (FastMCP stdio) + `.mcp.json`; tools start/steer/pending/approve/status/final/stop/run.
-   Re-runnable check: `tests/mcp_smoke.py`. Remaining polish: system prompt via agent config
-   (item 3) so the protocol is not prepended to the task prompt.
-2. Grow the graded co-optimization loop: more tasks/targets, routing divergences to the model
+   Re-runnable check: `tests/mcp_smoke.py`.
+2. ~~System prompt via agent config~~ DONE (2026-08-17): the protocol is now the
+   `opencode-worker` OpenCode agent's system prompt, compiled from the protocol by
+   `scripts/build_agent.py` into `.opencode/agent/opencode-worker.md`; the driver binds the agent
+   on session create and submits only the task (no prepend). Re-runnable check:
+   `tests/agent_smoke.py`. STILL OPEN from the old item 3: place the *skill* at
+   `.opencode/skills/<name>/SKILL.md` -- deferred, since the current skill is Opus-side (Claude
+   Code), and `.opencode/skills/` is a worker-side location; the right target needs a decision
+   (see the note in the skill section) before moving it.
+3. Grow the graded co-optimization loop: more tasks/targets, routing divergences to the model
    delta overlay or the driver protocol; record earned transfer grades per target.
-3. Proper artifact placement: skill to `.opencode/skills/<name>/SKILL.md`, system prompt via
-   the agent config (currently the protocol is prepended to the task prompt).
 4. Bundle for distribution via hoistable (the cross-compiler + grader).
 5. Not this repo: rebalance the Qwen tensor-split toward the 3090 (a `mainframe` k8s tuning
    item; the A4500 is the bottleneck under 0.57/0.43).

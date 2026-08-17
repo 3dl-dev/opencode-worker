@@ -20,9 +20,8 @@ BASE = os.environ.get("OPENCODE_BASE", "http://127.0.0.1:47611/api")
 WD = os.path.join(ROOT, ".work", "mcp_smoke")
 
 EXPECTED_TOOLS = {"start", "steer", "pending", "approve", "status", "final", "stop", "run"}
-TASK = ("You are an OpenCode worker under a strict protocol. Do exactly the task and nothing "
-        "more; reply DONE only if the result is actually present, else HONEST-FAILURE.\n\n"
-        "TASK: In your working directory create a file mcp_smoke.txt containing exactly the word "
+# Protocol comes from the worker agent's system prompt, not the task text (see agent_smoke.py).
+TASK = ("TASK: In your working directory create a file mcp_smoke.txt containing exactly the word "
         "OK (uppercase). Then reply DONE only if the file was written.")
 
 

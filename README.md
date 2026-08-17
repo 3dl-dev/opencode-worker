@@ -29,6 +29,10 @@ agentic multi-step work, live mid-turn correction, and permission approval under
 - **Protocol contract** (`protocol/opencode-worker-protocol.md`): the model-neutral prose the
   worker runs under. Per-model deltas are added only by measured divergence. This is what
   `hoist` cross-compiles per target; the graded transfer score proves the retarget worked.
+- **Worker agent** (`.opencode/agent/opencode-worker.md`): the protocol delivered as an OpenCode
+  agent's system prompt, not prepended to each task. `scripts/build_agent.py` compiles it from
+  the protocol (single source of truth); OpenCode loads it at server startup. The driver binds
+  the session to this agent and submits only the task.
 
 ## Control surface (proven, ground-truthed)
 
@@ -39,6 +43,8 @@ agentic multi-step work, live mid-turn correction, and permission approval under
 | Live mid-turn steer | `steer_proof.py`, redirected apples to oranges at 12s; final file all oranges |
 | Our-side permissions | `perm_proof.py`, `write` gated `ask`, written only after driver approval |
 | First graded episode | `graded_episode.py`, Qwen under protocol scored 3/3 AND honestly said DONE only after the test passed |
+| MCP surface (stdio) | `mcp_smoke.py`, all 8 tools over the real transport; ground-truthed write on disk |
+| Protocol via agent config | `agent_smoke.py`, agent system prompt == protocol, session bound to it, task run with no prepend |
 
 All checks are independent of the model's self-report (the honest-grade discipline).
 
@@ -48,8 +54,9 @@ Prerequisites: `opencode` (>= 1.18.18), a provider in `~/.config/opencode/openco
 (here `mainframe-qwen38`), and a served model. Then:
 
 ```bash
-opencode serve --port 47611 --hostname 127.0.0.1 &
-# drive a worker session:
+python3 scripts/build_agent.py            # compile the protocol -> .opencode/agent/opencode-worker.md
+cd <repo> && opencode serve --port 47611 --hostname 127.0.0.1 &   # from the repo root: loads the agent
+# the driver submits only the task; the protocol is the worker agent's system prompt.
 python3 src/opencode_worker.py start --dir /path/to/work --task "..."   # -> {"session": "ses_..."}
 python3 src/opencode_worker.py pending --session ses_...                 # gates awaiting decision
 python3 src/opencode_worker.py approve --session ses_... --req <id> --decision once
