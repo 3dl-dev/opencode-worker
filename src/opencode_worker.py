@@ -10,31 +10,62 @@ This is the reusable inner call path the MCP surface (worker.start/steer/approve
 and the graded co-optimization loop both wrap. Proof-first in scratch; moves to hoistable
 once validated live.
 """
-import json, time, urllib.request, urllib.error
+import json, time, re, hashlib, urllib.request, urllib.error
 
-# A TARGET is the full triple; every axis is a parameter, none a fixture.
-# opencode is harness #1 and qwen3.8-27b is model #1 - defaults only.
+# A TARGET is (model, quant, harness, settings, env); every axis is a parameter, none a fixture.
+# opencode is harness #1 and qwen3.8-27b @ Q8_0 is model #1 - defaults only. `model` is the
+# wire-safe object OpenCode accepts on POST /session ({providerID,id,variant} only); quant and
+# settings are SIBLING axes (OpenCode rejects extra keys inside `model`), so the worker pack can
+# still be keyed by them.
 DEFAULT_MODEL = {"providerID": "mainframe-qwen38", "id": "qwen3.8-27b"}
-DEFAULT_TARGET = {"model": DEFAULT_MODEL, "harness": "opencode", "env": None}
+DEFAULT_SETTINGS = {"context": 262144, "thinking": True}
+DEFAULT_TARGET = {"model": DEFAULT_MODEL, "quant": "Q8_0", "harness": "opencode",
+                  "settings": DEFAULT_SETTINGS, "env": None}
+AGENT_NAME = "opencode-worker"
+
+
+def _settings_sig(settings):
+    """Stable short signature of the settings dict, so a settings change keys a different pack."""
+    if not settings:
+        return "default"
+    return hashlib.sha1(json.dumps(settings, sort_keys=True).encode()).hexdigest()[:8]
+
+
+def _slug(s):
+    return re.sub(r"[^a-z0-9._-]+", "-", str(s).lower()).strip("-")
+
 
 def resolve_artifacts(target):
-    """Select the compiled artifacts for this exact target. Tracking lives here: the skill +
-    system-prompt variant, the deltas stacked, and the earned grade are all keyed by
-    (model, harness, env). v0 returns the single known target's set; a real registry replaces
-    this body without changing callers."""
+    """Select the compiled artifacts for this exact target. Everything the worker pack carries -
+    the OpenCode agent (system prompt), the skill-pack, the settings, the stacked deltas, and the
+    earned grade - is keyed by the FULL target (model, quant, harness, settings, env), because a
+    weaker model / different quant / different serving settings needs a different pack. v0 emits
+    one pack (the default qwen target); a real registry replaces this body without changing
+    callers. The Claude-side orchestrator skill is target-agnostic and lives outside the pack."""
     model = target.get("model", {})
+    mid = model.get("id")
+    quant = target.get("quant") or "unspecified"
     harness = target.get("harness", "opencode")
-    key = f"model={model.get('id')};harness={harness};env={target.get('env')}"
+    settings = target.get("settings") or {}
+    sig = _settings_sig(settings)
+    env = target.get("env")
+    key = f"model={mid};quant={quant};harness={harness};settings={sig};env={env}"
+    slug = _slug(f"{mid}__{quant}__{harness}")
+    pack_dir = f"packs/{slug}"
     return {
         "key": key,
-        "skill": None,          # -> place at .opencode/skills/<name>/SKILL.md
-        # The protocol is delivered as this OpenCode agent's system prompt (compiled from
-        # protocol/opencode-worker-protocol.md into .opencode/agent/<agent>.md by
-        # scripts/build_agent.py), not prepended to the task. The driver names the agent on
-        # session create; the server must have loaded it at startup.
-        "agent": "opencode-worker",
-        "system_prompt": "protocol/opencode-worker-protocol.md",
-        "deltas": ["qwen-opencode"] if model.get("id") == "qwen3.8-27b" else [],
+        # opencode-side worker pack (target-keyed source) + the active install the server loads
+        "pack_dir": pack_dir,
+        "pack_manifest": f"{pack_dir}/manifest.json",
+        "pack_agent": f"{pack_dir}/agent/{AGENT_NAME}.md",
+        "agent": AGENT_NAME,
+        "agent_file": f".opencode/agent/{AGENT_NAME}.md",
+        "system_prompt": "protocol/opencode-worker-protocol.md",   # protocol source (compiled in)
+        "settings": settings,
+        "settings_sig": sig,
+        # Claude-side orchestrator skill: one skill, target-agnostic, NOT part of the pack.
+        "skill_claude": "skills/opencode-worker/SKILL.md",
+        "deltas": ["qwen-opencode"] if mid == "qwen3.8-27b" else [],
         "grade": None,          # -> filled from the transfer-score record for this target
         "version": "v0",
     }
@@ -239,6 +270,7 @@ if __name__ == "__main__":
     def _tgt_args(pp):
         pp.add_argument("--provider", default=DEFAULT_MODEL["providerID"])
         pp.add_argument("--model", default=DEFAULT_MODEL["id"])
+        pp.add_argument("--quant", default=DEFAULT_TARGET["quant"])
         pp.add_argument("--agent", default=None, help="worker agent (default: target's resolved agent)")
     ps = sub.add_parser("start"); ps.add_argument("--dir", required=True); ps.add_argument("--task", required=True); _tgt_args(ps)
     pt = sub.add_parser("steer"); pt.add_argument("--session", required=True); pt.add_argument("--msg", required=True)
@@ -249,7 +281,8 @@ if __name__ == "__main__":
     psp = sub.add_parser("stop"); psp.add_argument("--session", required=True)
     pr = sub.add_parser("run"); pr.add_argument("--dir", required=True); pr.add_argument("--task", required=True); pr.add_argument("--auto", default="once", choices=["once", "always", "reject"]); _tgt_args(pr)
     a = ap.parse_args(); w = OpenCodeWorker(a.base)
-    def _tgt(a): return {"model": {"providerID": a.provider, "id": a.model}, "harness": "opencode", "env": None}
+    def _tgt(a): return {"model": {"providerID": a.provider, "id": a.model}, "quant": a.quant,
+                         "harness": "opencode", "settings": DEFAULT_SETTINGS, "env": None}
     if a.cmd == "start":
         print(_json.dumps({"session": w.start(a.task, a.dir, target=_tgt(a), agent=a.agent)}))
     elif a.cmd == "steer":

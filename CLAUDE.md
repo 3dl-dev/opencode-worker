@@ -101,12 +101,15 @@ src/opencode_worker.py                 driver + Bash connector CLI
 src/opencode_worker_mcp.py             MCP server (stdio) wrapping the driver as tools
 .mcp.json                              repo MCP config so Claude Code discovers the server
 protocol/opencode-worker-protocol.md   model-neutral worker contract (hoist cross-compiles it)
-scripts/build_agent.py                 compile the protocol -> .opencode/agent/<name>.md
-.opencode/agent/opencode-worker.md     GENERATED worker agent (protocol as system prompt)
-skills/opencode-worker/SKILL.md        the hoistable/Claude-Code skill that bundles this
+scripts/build_agent.py                 compile the protocol -> target pack + active agent install
+packs/<model>__<quant>__<harness>/     target-keyed worker pack (opencode-side): agent + manifest
+.opencode/agent/opencode-worker.md     GENERATED active agent install (the server loads this)
+skills/opencode-worker/SKILL.md        Claude-side orchestrator skill (target-agnostic)
+docs/design/artifact-architecture.md   the two-sided, target-keyed artifact design
 tests/smoke.py                         re-runnable end-to-end check (library path)
 tests/mcp_smoke.py                     re-runnable end-to-end check (MCP stdio path)
 tests/agent_smoke.py                   re-runnable check: protocol delivered via agent config
+tests/target_test.py                   offline check: pack keying is model/quant/settings sensitive
 tests/evidence/                        the original proof scripts (scratch paths; historical)
 README.md                              overview + usage
 ```
@@ -117,17 +120,22 @@ README.md                              overview + usage
    (FastMCP stdio) + `.mcp.json`; tools start/steer/pending/approve/status/final/stop/run.
    Re-runnable check: `tests/mcp_smoke.py`.
 2. ~~System prompt via agent config~~ DONE (2026-08-17): the protocol is now the
-   `opencode-worker` OpenCode agent's system prompt, compiled from the protocol by
-   `scripts/build_agent.py` into `.opencode/agent/opencode-worker.md`; the driver binds the agent
-   on session create and submits only the task (no prepend). Re-runnable check:
-   `tests/agent_smoke.py`. STILL OPEN from the old item 3: place the *skill* at
-   `.opencode/skills/<name>/SKILL.md` -- deferred, since the current skill is Opus-side (Claude
-   Code), and `.opencode/skills/` is a worker-side location; the right target needs a decision
-   (see the note in the skill section) before moving it.
-3. Grow the graded co-optimization loop: more tasks/targets, routing divergences to the model
+   `opencode-worker` OpenCode agent's system prompt, compiled by `scripts/build_agent.py`; the
+   driver binds the agent on session create and submits only the task (no prepend). Check:
+   `tests/agent_smoke.py`.
+3. ~~Two-sided, target-keyed artifact architecture~~ FOUNDATION DONE (2026-08-17): capturing
+   OpenCode is (a) one Claude-side orchestrator skill (target-agnostic, `skills/opencode-worker/`)
+   plus (b) an opencode-side worker pack that is model/quant/settings sensitive. The target now
+   carries `(model, quant, harness, settings, env)`; `resolve_artifacts` keys the pack by the full
+   target; `build_agent.py` emits `packs/<model>__<quant>__<harness>/` (agent + manifest) and
+   installs the active agent. Design: `docs/design/artifact-architecture.md`. Checks:
+   `tests/target_test.py` (offline keying), `tests/agent_smoke.py`. STILL OPEN: the settings
+   opencode.json fragment and the OpenCode worker skill-pack (`.opencode/skills/`) per target;
+   multi-target install selection; wire the earned grade into the pack.
+4. Grow the graded co-optimization loop: more tasks/targets, routing divergences to the model
    delta overlay or the driver protocol; record earned transfer grades per target.
-4. Bundle for distribution via hoistable (the cross-compiler + grader).
-5. Not this repo: rebalance the Qwen tensor-split toward the 3090 (a `mainframe` k8s tuning
+5. Bundle for distribution via hoistable (the cross-compiler + grader).
+6. Not this repo: rebalance the Qwen tensor-split toward the 3090 (a `mainframe` k8s tuning
    item; the A4500 is the bottleneck under 0.57/0.43).
 
 ## Relationships

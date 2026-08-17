@@ -23,9 +23,15 @@ agentic multi-step work, live mid-turn correction, and permission approval under
 - **MCP server** (`src/opencode_worker_mcp.py`): the same control surface as MCP tools over
   stdio, so Claude Code drives a worker with tool calls instead of the Bash CLI. Discovered
   via the repo `.mcp.json`. Same inner call path, same subscription-safety.
-- **Target** = `(model, harness, environment)`, every axis a parameter. `resolve_artifacts(target)`
-  keys the skill / system-prompt / deltas / grade by the full target. OpenCode is harness #1,
-  Qwen3.8-27B is model #1, neither is a fixture.
+- **Target** = `(model, quant, harness, settings, environment)`, every axis a parameter.
+  `resolve_artifacts(target)` keys the worker pack (agent / settings / deltas / grade) by the full
+  target, because it is model/quant/settings sensitive. OpenCode is harness #1, Qwen3.8-27B @ Q8_0
+  is model #1, none a fixture. `quant` and `settings` are siblings of `model` (OpenCode's wire
+  model object takes only providerID/id/variant).
+- **Two sides** (`docs/design/artifact-architecture.md`): a Claude-side orchestrator **skill**
+  (target-agnostic, `skills/opencode-worker/`) drives the worker; an opencode-side **worker pack**
+  (`packs/<model>__<quant>__<harness>/`) carries the target's agent/system-prompt, settings, and
+  skill-pack. `scripts/build_agent.py` compiles a pack and installs its active agent.
 - **Protocol contract** (`protocol/opencode-worker-protocol.md`): the model-neutral prose the
   worker runs under. Per-model deltas are added only by measured divergence. This is what
   `hoist` cross-compiles per target; the graded transfer score proves the retarget worked.

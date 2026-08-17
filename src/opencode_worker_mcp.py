@@ -22,7 +22,7 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mcp.server.fastmcp import FastMCP
 
-from opencode_worker import OpenCodeWorker, DEFAULT_MODEL, resolve_artifacts
+from opencode_worker import OpenCodeWorker, DEFAULT_MODEL, DEFAULT_TARGET, DEFAULT_SETTINGS, resolve_artifacts
 
 BASE = os.environ.get("OPENCODE_BASE", "http://127.0.0.1:47611/api")
 _worker = OpenCodeWorker(BASE)
@@ -30,9 +30,11 @@ _worker = OpenCodeWorker(BASE)
 mcp = FastMCP("opencode-worker")
 
 
-def _target(provider: str, model: str) -> dict:
-    """Build the target triple. harness=opencode, env=None are the only values v0 resolves."""
-    return {"model": {"providerID": provider, "id": model}, "harness": "opencode", "env": None}
+def _target(provider: str, model: str, quant: str = "") -> dict:
+    """Build the target. quant/settings default to the qwen target; harness=opencode, env=None."""
+    return {"model": {"providerID": provider, "id": model},
+            "quant": quant or DEFAULT_TARGET["quant"], "harness": "opencode",
+            "settings": DEFAULT_SETTINGS, "env": None}
 
 
 @mcp.tool()
