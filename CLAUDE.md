@@ -151,5 +151,7 @@ README.md                              overview + usage
 ## Relationships
 
 - `dap` owns the spec (`docs/specs/opencode-worker-integration.md`, `opencode-worker-protocol.md`).
-- `hoistable` owns the cross-compile and the graded transfer score (`emit.py`, `grade/`).
+- `skillc` owns the skill build, cross-compile, and grounding (the comparative transfer grade,
+  `loss = score(reference) - score(target)`); target profiles live in `skillc/seed/targets/`
+  (the `qwen-opencode` target is already seeded). (These moved out of `hoistable` into `skillc`.)
 - This repo owns the connector implementation and its packaging as a skill.
