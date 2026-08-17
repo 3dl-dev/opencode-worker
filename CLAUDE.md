@@ -60,7 +60,13 @@ Against `opencode serve` v2 (`/api`):
   ...}` (v2) or `{id, permission, patterns, ...}` (v1). Reply:
   `POST /session/{id}/permission/{id}/reply` with `{reply:"once"|"always"|"reject"}`. Gate a
   tool by setting `permission: {<tool>: "ask"}` in `opencode.json` (per-tool allow/ask/deny;
-  `bash` takes wildcard maps). A workdir-local `opencode.json` scopes it to that session.
+  `bash` takes wildcard maps). A workdir-local `opencode.json` scopes it to that session. Better:
+  set the gating in the AGENT frontmatter (`permission: {edit: ask, bash: ask, ...}`) so it is
+  target-keyed and travels with the pack; opencode parses it into a ruleset of
+  `{action, resource:"*", effect}`. Valid tool keys: read, edit, glob, grep, list, bash, task,
+  external_directory, todowrite, question, webfetch, websearch, lsp, doom_loop, skill (no `write`;
+  file writes gate under `edit`). The worker pack gates the mutating + external tools, leaves
+  read-only allowed. `scripts/build_agent.py` renders this from the target's `settings.permission`.
 - Deliver the worker protocol as an OpenCode **agent** system prompt, not prepended per task.
   Agents load from `.opencode/agent/<name>.md` (frontmatter + body = the system prompt) at server
   STARTUP ONLY: no hot reload, and `{file:...}` is NOT expanded in the `prompt`/body (it is stored

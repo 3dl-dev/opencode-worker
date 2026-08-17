@@ -21,8 +21,9 @@ t = copy.deepcopy(DEFAULT_TARGET); t["settings"] = {"context": 262144, "thinking
 assert resolve_artifacts(t)["key"] != base["key"], "settings must change the key"
 assert resolve_artifacts(t)["settings_sig"] != base["settings_sig"], "settings sig must differ"
 
-# settings signature is order-stable
-t = copy.deepcopy(DEFAULT_TARGET); t["settings"] = {"thinking": True, "context": 262144}
+# settings signature is order-stable: the SAME settings in reversed insertion order key the same
+t = copy.deepcopy(DEFAULT_TARGET)
+t["settings"] = dict(reversed(list(DEFAULT_TARGET["settings"].items())))
 assert resolve_artifacts(t)["key"] == base["key"], "settings sig must be order-stable"
 
 # the CLI/MCP-shaped target resolves to the same key as DEFAULT_TARGET

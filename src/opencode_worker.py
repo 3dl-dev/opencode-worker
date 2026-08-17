@@ -18,7 +18,15 @@ import json, time, re, hashlib, urllib.request, urllib.error
 # settings are SIBLING axes (OpenCode rejects extra keys inside `model`), so the worker pack can
 # still be keyed by them.
 DEFAULT_MODEL = {"providerID": "mainframe-qwen38", "id": "qwen3.8-27b"}
-DEFAULT_SETTINGS = {"context": 262144, "thinking": True}
+# Serving/behavior settings that key the pack. `permission` is OUR-side gating: the mutating and
+# external tools ask (the driver decides), read-only tools stay allowed so the worker can explore
+# without gate spam. Compiled into the agent frontmatter by scripts/build_agent.py.
+DEFAULT_SETTINGS = {
+    "context": 262144,
+    "thinking": True,
+    "permission": {"edit": "ask", "bash": "ask", "webfetch": "ask",
+                   "websearch": "ask", "external_directory": "ask"},
+}
 DEFAULT_TARGET = {"model": DEFAULT_MODEL, "quant": "Q8_0", "harness": "opencode",
                   "settings": DEFAULT_SETTINGS, "env": None}
 AGENT_NAME = "opencode-worker"

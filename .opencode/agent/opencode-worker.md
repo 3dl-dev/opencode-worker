@@ -1,7 +1,13 @@
 ---
-description: OpenCode worker under the strict worker protocol for target model=qwen3.8-27b;quant=Q8_0;harness=opencode;settings=d88e0078;env=None (GENERATED from protocol/opencode-worker-protocol.md by scripts/build_agent.py; do not edit by hand).
+description: OpenCode worker under the strict worker protocol for target model=qwen3.8-27b;quant=Q8_0;harness=opencode;settings=00db5574;env=None (GENERATED from protocol/opencode-worker-protocol.md by scripts/build_agent.py; do not edit by hand).
 mode: primary
 model: mainframe-qwen38/qwen3.8-27b
+permission:
+  edit: ask
+  bash: ask
+  webfetch: ask
+  websearch: ask
+  external_directory: ask
 ---
 
 # OpenCode worker protocol (v0, compilation source; model-neutral core + per-model delta)

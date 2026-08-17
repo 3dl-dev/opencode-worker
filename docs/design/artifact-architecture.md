@@ -66,9 +66,18 @@ installing selects it.
 
 ## Implemented vs pending
 
-- Implemented: target carries model/quant/settings; `resolve_artifacts` keys the pack by the
-  full target; `build_agent.py` emits the pack + active install + manifest for the default
-  (qwen) target; the system prompt is delivered via the agent (not prepended).
-- Pending: the settings opencode.json fragment and OpenCode skill-pack per target; multi-target
-  install selection; wiring the earned grade into `resolve_artifacts(...).grade`; hoistable owns
-  the cross-compile that emits a pack per target and the graded transfer score.
+- Implemented:
+  - target carries model/quant/settings; `resolve_artifacts` keys the pack by the full target;
+  - the system prompt is delivered via the agent (not prepended);
+  - `build_agent.py` emits the pack (agent + manifest) and installs the active agent for a target;
+  - **settings are compiled into the agent frontmatter**: our-side permission gating (mutating +
+    external tools ask, read-only allowed) and sampling, so gating is explicit and target-keyed,
+    not a server default;
+  - **install selection**: one target is active at a time, recorded in
+    `.opencode/active-target.json`; `build_agent.py --list` shows packs and the active one; the
+    pack's OpenCode **skill-pack** (`packs/<slug>/skills/`) installs to `.opencode/skills/`.
+- Pending:
+  - the skill-pack is honestly empty until a real divergence is measured (overlays/skills are
+    added from measured episodes, never invented);
+  - wiring the earned grade into `resolve_artifacts(...).grade` (needs the graded loop);
+  - hoistable owns the cross-compile that emits a pack per target and the graded transfer score.

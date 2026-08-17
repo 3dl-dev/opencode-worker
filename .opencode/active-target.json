@@ -1,6 +1,7 @@
 {
   "key": "model=qwen3.8-27b;quant=Q8_0;harness=opencode;settings=00db5574;env=None",
   "agent": "opencode-worker",
+  "pack_dir": "packs/qwen3.8-27b__q8_0__opencode",
   "model": {
     "providerID": "mainframe-qwen38",
     "id": "qwen3.8-27b"
@@ -17,11 +18,5 @@
       "external_directory": "ask"
     }
   },
-  "harness": "opencode",
-  "env": null,
-  "system_prompt": "protocol/opencode-worker-protocol.md",
-  "deltas": [
-    "qwen-opencode"
-  ],
-  "version": "v0"
+  "skills": []
 }
