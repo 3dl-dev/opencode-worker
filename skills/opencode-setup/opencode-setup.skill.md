@@ -1,0 +1,91 @@
+---
+name: opencode-setup
+description: An intelligent wizard that sets up (or locates) a model an OpenCode worker can use, across any environment from a bare machine to a hidden rig. Self-building: it rebuilds against the receiver's session, then discovers/provisions a reachable model and hands the target to opencode-worker. Reports built / cannot-build honestly.
+---
+
+<!-- What ships vs what runs at runtime -->
+This file ships the **wizard method and the kit**, not a fixed procedure baked to one machine.
+The discovery, provisioning, and grounding all happen at RUNTIME, in the receiver's session,
+against the receiver's actual environment, which only they and their machine can reveal. We carry
+the method (look / infer / ask / guide), the carried environment profiles (source), and the
+reachability check. Our k3s stack is the environment this kit is validated against and one carried
+profile; it is not a template every receiver matches.
+
+- transfer measure: earned at runtime, per-user, and living, did the wizard establish reachable
+  inference in the receiver's real environment (JIT, see acceptance).
+
+## This skill builds itself before its first answer
+
+Before acting, run the rebuild recipe below against THIS session. Resolve the binds; then orient
+to the receiver's environment and run discover -> decide -> provision -> verify against it, using
+the carried method. If a carried environment profile matches, stack its corrections; if the
+environment is new, adapt and (later) ground a profile from what you learn. The carried method is
+the authority for HOW to set up, not local defaults.
+
+<!-- EMIT: stamp skillc/seed/rebuild.skill.md (the canonical 7-step rebuild recipe) verbatim
+     here, identical in every self-building file; the deterministic emit inlines it. -->
+
+## Carried definition (the authority): you are an intelligent setup wizard, not a script
+
+You, the executing agent, are the general part. There is no fixed matrix of hardware/models/
+providers, and setup is not a canned probe sequence: environments run from nothing to a veteran's
+rig no command reveals, and much of any real setup is knowledge only the user holds. Work like a
+wizard:
+
+- **Look around** - inspect what is visible (an endpoint you were given, `opencode --version`, a
+  `nvidia-smi` for a *local* card, env keys).
+- **Infer** - reason from partial evidence toward the likely situation.
+- **Ask** - a silent `nvidia-smi` proves nothing; a rig can hide behind networking or a cluster.
+  Ask the receiver what they have and want.
+- **Guide** - when they do not know either, walk them to the answer: hand them a command, read the
+  result together, narrow it down.
+
+Meet each receiver where they are, from newbie to devoperator; match hand-holding to their level.
+The receiver is the authority on their own environment.
+
+**The flow.** DISCOVER (orient, above) -> DECIDE the serving side of the target `(model, quant,
+...)`: capture an already-served rig (no install); else fit the best model a real local
+accelerator runs (reason weight-vs-VRAM with KV headroom, confirm at load, not from a table);
+else an API provider whose key is present; recommend and confirm before any download or server
+start. -> PROVISION: install opencode if absent; local, pull weights (prefer an MTP-bearing GGUF
+for llama.cpp) and serve until healthy; API, write the provider block with the key. Subscription
+-safe: only the local opencode server and the model endpoint, never Claude Code's own auth. ->
+VERIFY reachable: a trivial completion returns; note the `(model, quant, settings)` stood up.
+
+## Carried environment profiles (source)
+
+The runtime stacks the profile matching the receiver's environment; add profiles as environments
+are grounded. New environments are handled by the method above and grounded from what is learned,
+never invented.
+
+### our-stack (k3s GPU rail; the environment this kit is validated against)
+The GPUs are **owned by k3s**, so the rail is fixed: you do NOT launch a raw local model. Provision
+by scaling the model's k8s deployment (e.g. `kubectl scale deploy/<serve> --replicas=1`), wait for
+health at the served endpoint, and scale back to 0 when done. "Trying a different model" here means
+swapping the deployment's served model, not spawning llama.cpp yourself. Bring the rail up only
+when it is free; yield it when other work needs the cards.
+
+## Binds (resolve on the receiver; a missing required one is cannot-build)
+
+- **The receiver's environment**, however their accelerators are reached (bare host, a cluster, a
+  hypervisor, a laptop) - established WITH the receiver, not assumed. Required.
+- **opencode** installed or installable. Required.
+- **Model credentials** for an API target: by reference (an env key name), never a value. Optional.
+
+## Checks (every run obeys)
+
+- Orient to the receiver; never assume a probe reveals the environment. Ask when it is invisible.
+- Recommend and confirm before anything that downloads weights or starts/stops a server.
+- Subscription-safe: only the local opencode server and the model endpoint.
+- Do not stand up inference you cannot then VERIFY reachable; a model that does not answer is
+  cannot-build, named, not a guess.
+
+## Acceptance: reachable inference, real and sampled (known-state)
+
+Acceptance is a known state, not text pairs: **built** when opencode reaches a model that answers
+a trivial completion, and the `(model, quant, settings)` is named for hand-off; **cannot-build**
+when a required bind is missing, named. The difficulty ladder is the environment itself, easiest
+to hardest: an already-served endpoint -> fit-and-serve on a local card -> a hidden/veteran rig
+resolved only by asking. The real grade is per-user and JIT: across the receiver's actual setup
+attempts, did the wizard reach reachable inference, and how far up that environment ladder. Then
+hand the target to **opencode-worker**, which cross-compiles the pack for it and drives.
