@@ -1,0 +1,131 @@
+---
+name: opencode-worker
+description: Delegate a scoped, independently-verifiable agentic task from Claude Code to an OpenCode worker and honest-grade the result, subscription-safe. Self-building: on first use it rebuilds against your session and reports built / honest-failure / cannot-build before it acts.
+---
+
+<!-- What ships vs what runs at runtime -->
+This file ships the **source and the kit**, not a baked result. The cross-compile (bending the
+outcome out of the receiver's target) and the grounding (earning the transfer grade) both happen
+at RUNTIME, in the receiver's session, against the receiver's actual `(model, agent)` — the only
+place their target exists. We carry what Claude needs to do that there: the protocol core, the
+carried target profiles (source), the honest-grade harness, and the ladder. `qwen-opencode` is
+the target this kit is validated against and one carried profile; it is not a pin.
+
+- reference for grounding: claude (the strong-model reference; `loss = score(ref) - score(target)`)
+- transfer grade: earned at runtime, per-user, and living (JIT, see the acceptance sections);
+  "not yet measured" until the receiver's target has run real work.
+
+## This skill builds itself before its first answer
+
+Before acting, run the rebuild recipe below against THIS session. Resolve the binds; identify the
+receiver's target; **cross-compile against it** — rebuild the instructions from the carried
+definition and, if a carried target profile matches the target, stack its corrections; if it is a
+new target, measure and ground one. Drive the ladder to its known-good states as far as the
+target reaches, then continue grounding JIT on real work. The carried definition is the authority,
+not local defaults; a matched target profile's corrections are binding during rebuild and run.
+
+<!-- EMIT: stamp skillc/seed/rebuild.skill.md (the canonical 7-step rebuild recipe, 84 lines)
+     verbatim here. It is identical in every self-building file and trusted by reading; the
+     deterministic emit inlines it so hand-transcription cannot drift it. -->
+
+## Carried definition (the authority)
+
+You are the orchestrator (Claude Code). You delegate a task to an OpenCode worker over the tool
+boundary and grade the result yourself. You never route Claude Code's own auth anywhere; you
+talk only to the local `opencode serve` HTTP API and the model endpoint behind it.
+
+**The worker runs under a strict protocol (install it as the worker agent's system prompt, not
+prepended per task).** The worker: does exactly the task and only that; treats a blocking
+permission gate as authoritative and never routes around it; treats a steer as an authoritative
+correction to apply immediately; and reports a BINARY outcome, DONE only if every required check
+actually passed, else HONEST-FAILURE, never relabeling a failing check.
+
+**Drive the worker over `opencode serve` (v2 `/api`) with ordinary tools (curl):**
+- Create a session: `POST /session {agent, model:{providerID,id}, location:{directory}}`; bind
+  it to the worker agent by name. Submit only the task: `POST /session/{id}/prompt {prompt:{text}}`.
+- Poll turn state from the NEWEST assistant message's `finish`: `tool-calls` = mid-turn (keep
+  polling), `stop`/`length` = done, `error` = failed turn. The session object has no usable
+  status field; do not poll it alone.
+- Service permission gates: `GET /session/{id}/permission` lists pending asks; reply
+  `POST /session/{id}/permission/{req}/reply {reply:"once"|"always"|"reject"}`. A gated worker
+  waits; decide per policy or escalate.
+- Steer mid-turn: `POST /session/{id}/prompt {prompt:{text}, delivery:"steer"}`. Halt:
+  `POST /session/{id}/interrupt`.
+- Read the reply: the `text` parts of the newest assistant message.
+- Unwrap the top-level `data` key on every `/api` response.
+
+**The honest grade (the whole point).** The worker's DONE is a claim, not evidence. Define the
+task's acceptance as an independent check YOU run on the real result (a file's content, a test's
+exit, a service's health). Outcome is binary: **built** only if every check passes; otherwise
+**honest-failure**, tear down partial state, report faithfully. Never relabel a failing check.
+
+## Carried target profiles (cross-compile source)
+
+The runtime cross-compile stacks the profile matching the receiver's target; corrections are then
+binding for rebuild and run. Add profiles as targets are grounded. If the receiver's target
+matches none, the runtime grounds a new one from measured divergence (never invented). Below is
+the one profile this kit is validated against, stamped from `skillc/seed/targets/qwen-opencode.md`
+(how this model mis-follows any skill, not this skill's content):
+
+### qwen-opencode (model=qwen3.8-27b, agent=opencode, reference=claude)
+
+1. **A failing check is honest-failure. Never argue past it.** This model has relabeled a
+   genuinely-failed check "done" on its own judgment that the result "looked right", leaving
+   non-compliant state standing. Hold the line: the check result is the authority; one failing
+   check means honest-failure, full stop. If you think the check is wrong, say so as a finding,
+   but still report honest-failure.
+2. **Resolve with the plainest probes; do not characterize the environment beyond what the
+   recipe asks.** This model has reached for broad probes (reading `/proc`, `/etc`, `/dev`;
+   scanning for un-named tools) that trip the permission gate and, unattended, abort the run.
+   Use only the plain commands the task calls for.
+
+## Binds (resolve on the receiver; a missing required one is cannot-build)
+
+- **A reachable OpenCode worker target.** `opencode serve` running, bound to a worker agent, with
+  a model endpoint it can actually reach and that answers. If none exists, this is produced by
+  the **opencode-setup** wizard (invoke it, do not build inference here). Required.
+- **A working directory** the worker is allowed to edit in. Required.
+- **Model credentials** (only if the target is API-backed): by reference (an env key name),
+  never a value. Optional, target-dependent.
+
+## Checks (every run obeys)
+
+- Submit only the task; the protocol is the worker agent's system prompt, never prepended.
+- Never trust the worker's self-report; grade the real result with an independent check.
+- Binary outcome: built only if every check passes, else honest-failure. Never relabel.
+- Permission gates are authoritative: approve or reject explicitly; never assume approval.
+- Subscription-safe: only the local opencode server and the model endpoint; never reroute
+  Claude Code's auth.
+
+## The ladder (shipped bar; known-good states, not text pairs)
+
+Acceptance is real work reaching a known state (skillc 0.3: acceptance-encoding-agnostic). We
+ship a LADDER of delegable tasks graduated by difficulty, each with an independent check the
+orchestrator runs, so grounding sees WHERE the target falls off, not just that it clears a floor.
+The rebuild drives the worker up the rungs it can; unreached rungs are honest-blank, never faked.
+
+1. **exact-file.** "Create `ok.txt` containing exactly `OK`." Known-good: file content == `OK`.
+   (Plumbing + one mutating gate.)
+2. **function+test.** "Create `add.py` with `add(a,b)->a+b` and `test_add.py` asserting
+   `add(2,3)==5`, printing PASS; run it." Known-good: `python3 test_add.py` exits 0 / prints PASS,
+   verified by the orchestrator, not the worker's DONE. (Multi-step + honest grade.)
+3. **small module.** "Implement this 2-3 function module to the given signatures + its tests."
+   Known-good: the module's own test suite passes.
+4. **bug-to-green.** "Given this failing test, fix the code so it passes without breaking the
+   others." Known-good: the full suite goes green. (Reads existing code; no over-probing.)
+5. **realistic change.** "Add the described small feature/CLI command against this codebase."
+   Known-good: the project's own build/test check stays green.
+
+Held back for the ship-time transfer score: a novel rung at each level the rebuild did not see.
+Extend the ladder upward as targets get stronger; do not invent rungs a target cannot yet reach.
+
+## The real acceptance: the user's workflow, sampled just-in-time
+
+The ladder is the PORTABLE bar measured at ship. The REAL grade is earned per-user and JIT: once
+the worker is in the user's actual workflow, SAMPLE real delegated tasks, honest-grade each
+against its own real check, and keep a LIVING transfer score, built rate, honest-outcome rate,
+and how far up the difficulty gradient the target holds. It is not a fixed author-side point; it
+descends continuously on the user's own work. Grounding is JIT and per-user:
+`loss = score(reference) - score(target)` on sampled real tasks, and each divergence routes to
+the target delta (this file) or the driver protocol. The provenance grade above starts "not yet
+measured" and becomes this living, per-user number as real tasks accrue.
