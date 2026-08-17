@@ -10,9 +10,17 @@ driving an already-reachable model) over the tool boundary, so nothing touches t
 subscription auth. You approve the worker's permission gates, may steer it mid-run, and NEVER
 trust its self-report: you verify with real checks.
 
-This is the BINDING unit, distinct from setup. It assumes a target already exists: a model
-opencode can reach, named by its `(model, quant, settings)`. If there is no such target yet,
-run the **opencode-setup** wizard first; it hands one back here.
+This is the BINDING unit, distinct from setup, and it is the entry point. It needs a target: a
+model opencode can reach, named by its `(model, quant, settings)`.
+
+## First: ensure a target exists (call the wizard if needed)
+
+Check whether a reachable worker target is already in place (opencode configured, a model endpoint
+that answers). If there is one, use it. If there is NOT, INVOKE the **opencode-setup** skill - the
+inference wizard - which discovers/provisions a model for this user and hands back the target;
+then continue here. Compose it by invoking the skill, never by importing its internals. Do not
+try to stand up inference yourself: that is the wizard's whole job, across environments you cannot
+predict.
 
 ## When to use
 
