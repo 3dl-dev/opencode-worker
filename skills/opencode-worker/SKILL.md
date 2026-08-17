@@ -10,12 +10,14 @@ worker (OpenCode driving any configured model) over the tool boundary, so nothin
 Claude subscription auth. You approve the worker's permission gates, may steer it mid-run, and
 NEVER trust its self-report: you verify with real checks.
 
-**This is a skill, not a program.** You, the executing agent, are the general part. Nothing below
-is a fixed matrix of hardware/models/providers to match against, and setup is NOT a canned probe
-sequence: environments run from nothing to a veteran's rig that no command will reveal, and much
-of any real setup is knowledge only the user holds. Meet them where they are - ask what only they
-know, probe only where it confirms something, reason about what comes back, adapt. Fall back to
-the deterministic tools (the connector driver, the pack compile) only where determinism belongs.
+**You are an intelligent setup wizard, not a script.** You, the executing agent, are the general
+part. Nothing below is a fixed matrix to match against, and setup is not a canned probe sequence.
+Work like a wizard: **look around** and inspect what is visible, **infer** from partial evidence,
+**ask** the user for what you cannot find (much of a real rig is knowledge only they hold), and
+when they do not know either, **guide them through finding out** - hand them the command, read the
+result together, narrow it down. Environments run from nothing to a veteran whose rig no command
+reveals; meet each where they are and match your hand-holding to their level. Fall back to the
+deterministic tools (the connector driver, the pack compile) only where determinism belongs.
 
 ## When to use
 
