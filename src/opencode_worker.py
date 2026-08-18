@@ -41,6 +41,12 @@ DEFAULT_TARGET = {"model": DEFAULT_MODEL, "quant": "Q6_K", "harness": "opencode"
 AGENT_NAME = "opencode-worker"
 
 
+class GateUnreadable(RuntimeError):
+    """A blocking permission gate exists but opencode cannot serialize it (list endpoint errors),
+    so the driver cannot read or answer it. Raised so callers ESCALATE to Claude/the operator
+    rather than silently drop the gate and deadlock the worker."""
+
+
 def _settings_sig(settings):
     """Stable short signature of the settings dict, so a settings change keys a different pack."""
     if not settings:
@@ -157,15 +163,24 @@ class OpenCodeWorker:
                          {"prompt": {"text": msg}, "delivery": "steer"})
 
     def pending(self, sid):
-        """permission asks currently blocking. A transient server error listing them (e.g. opencode
-        400s on a permission whose metadata it cannot serialize) must NOT crash a long poll loop:
-        treat it as "nothing answerable this tick" and let the next poll retry. Only 4xx/5xx are
-        swallowed; a real connection failure still raises."""
+        """Permission asks currently blocking the worker.
+
+        A blocking control must NEVER fail to reach the orchestrator (Claude). When opencode's
+        permission-list endpoint 4xx/5xxs (it chokes serializing a permission's metadata: "Expected
+        JSON value ... at metadata.include"), the gate becomes unreadable -- and swallowing that as
+        [] would drop the gate and silently deadlock the worker. opencode surfaces this gate on NO
+        other channel here (it is absent from the session event log), so the driver cannot
+        auto-answer it. It therefore ESCALATES: it raises GateUnreadable so the caller surfaces
+        "the worker is blocked on a gate I cannot read" to Claude/the operator, who decides
+        (interrupt and retry, or intervene). Loud and visible beats silent and deadlocked."""
         try:
             r = self._req("GET", f"/session/{sid}/permission")
         except RuntimeError as e:
-            if any(code in str(e) for code in (" -> 4", " -> 5")):  # transient HTTP status
-                return []
+            if any(code in str(e) for code in (" -> 4", " -> 5")):
+                raise GateUnreadable(
+                    f"session {sid}: opencode cannot serialize a pending permission "
+                    f"(list endpoint failed: {str(e)[:160]}). The worker is blocked on a gate the "
+                    f"driver cannot read or answer; escalate rather than deadlock.")
             raise
         return r if isinstance(r, list) else r.get("requests", r.get("permissions", []))
 
@@ -209,7 +224,15 @@ class OpenCodeWorker:
         print(f"[worker] session {sid} started", flush=True)
         t0, last = time.time(), None
         while time.time() - t0 < budget:
-            for p in self.pending(sid):
+            try:
+                gates = self.pending(sid)
+            except GateUnreadable as e:
+                # A blocking control the driver cannot read: escalate, do not deadlock. Halt the
+                # worker so it does not sit blocked forever, and surface the state to the caller.
+                print(f"[worker] ESCALATE: {e}", flush=True)
+                self.interrupt(sid)
+                return sid, f"BLOCKED-GATE-UNREADABLE: {e}"
+            for p in gates:
                 dec = approve(p)
                 self.reply(sid, self.req_id(p), dec)
                 print(f"[worker] permission {self.describe(p)} -> {dec}", flush=True)

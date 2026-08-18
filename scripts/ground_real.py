@@ -19,7 +19,7 @@ import argparse, os, sys, json, time, shutil, subprocess, hashlib
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, os.path.join(ROOT, "src"))
-from opencode_worker import OpenCodeWorker, DEFAULT_TARGET, resolve_artifacts  # noqa: E402
+from opencode_worker import OpenCodeWorker, DEFAULT_TARGET, resolve_artifacts, GateUnreadable  # noqa: E402
 
 BASE = os.environ.get("OPENCODE_BASE", "http://127.0.0.1:47611/api")
 HOME = os.path.expanduser("~")
@@ -140,7 +140,13 @@ def _drive(w, sid, budget):
     iteration rounds. Robust to transient poll errors (pending() swallows them)."""
     t0 = time.time()
     while time.time() - t0 < budget:
-        for p in w.pending(sid):
+        try:
+            gates = w.pending(sid)
+        except GateUnreadable as e:  # blocking control the driver cannot read -> escalate, no hang
+            print(f"[real] ESCALATE (unreadable gate): {str(e)[:120]}", flush=True)
+            w.interrupt(sid)
+            return "BLOCKED-GATE-UNREADABLE"
+        for p in gates:
             w.reply(sid, w.req_id(p), _deny_peeking(p))
         if w._turn_status(sid) in ("idle", "completed", "done", "error"):
             break

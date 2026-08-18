@@ -22,7 +22,7 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from mcp.server.fastmcp import FastMCP
 
-from opencode_worker import OpenCodeWorker, DEFAULT_MODEL, DEFAULT_TARGET, DEFAULT_SETTINGS, resolve_artifacts
+from opencode_worker import OpenCodeWorker, DEFAULT_MODEL, DEFAULT_TARGET, DEFAULT_SETTINGS, resolve_artifacts, GateUnreadable
 
 BASE = os.environ.get("OPENCODE_BASE", "http://127.0.0.1:47611/api")
 _worker = OpenCodeWorker(BASE)
@@ -73,9 +73,18 @@ def pending(session: str) -> dict:
     Returns {pending: [{req, action}]}. Each `req` is the id to pass to `approve`; `action` is a
     human label of what the worker wants to do (e.g. the tool + resources). An empty list means
     nothing is gated right now. A gated worker waits: it will not proceed until you `approve`.
+
+    If the worker is blocked on a gate the driver CANNOT read (opencode fails to serialize the
+    permission), this returns {blocked: true, reason} instead of hiding it: the control has reached
+    you. You cannot `approve` it (no readable id) -- decide to `stop` the worker and retry, or
+    have the operator intervene. A blocking control is never silently dropped.
     """
-    items = [{"req": _worker.req_id(p), "action": _worker.describe(p)} for p in _worker.pending(session)]
-    return {"pending": items}
+    try:
+        gates = _worker.pending(session)
+    except GateUnreadable as e:
+        return {"blocked": True, "reason": str(e),
+                "advice": "cannot approve an unreadable gate; stop the worker and retry, or escalate to the operator"}
+    return {"pending": [{"req": _worker.req_id(p), "action": _worker.describe(p)} for p in gates]}
 
 
 @mcp.tool()
