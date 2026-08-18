@@ -122,15 +122,24 @@ actually passed, else HONEST-FAILURE, never relabeling a failing check.
 
 **Drive the worker over `opencode serve` (v2 `/api`) with ordinary tools (curl):**
 - Create a session: `POST /session {agent, model:{providerID,id}, location:{directory}}`; bind
-  it to the worker agent by name. Submit only the task: `POST /session/{id}/prompt {prompt:{text}}`.
+  it to the worker agent by name.
+- START the turn with a PLAIN prompt (this is what begins the turn): `POST /session/{id}/prompt
+  {prompt:{text}}`, the task only, never the protocol. Do NOT set `delivery:"steer"` on the first
+  prompt: a steer only injects into an ALREADY-running turn and will not start one, so a fresh
+  session given a steer just sits idle at zero tokens. If a turn does not start, you sent a steer,
+  not a plain prompt.
 - Poll turn state from the NEWEST assistant message's `finish`: `tool-calls` = mid-turn (keep
   polling), `stop`/`length` = done, `error` = failed turn. The session object has no usable
   status field; do not poll it alone.
-- Service permission gates: `GET /session/{id}/permission` lists pending asks; reply
-  `POST /session/{id}/permission/{req}/reply {reply:"once"|"always"|"reject"}`. A gated worker
-  waits; decide per policy or escalate.
-- Steer mid-turn: `POST /session/{id}/prompt {prompt:{text}, delivery:"steer"}`. Halt:
-  `POST /session/{id}/interrupt`.
+- Service permission gates PROMPTLY. The worker fires several tool calls in quick succession, so
+  poll `GET /session/{id}/permission` on a short interval (~1s, not every several seconds) or you
+  miss the window and it stalls. Reply `POST /session/{id}/permission/{req}/reply
+  {reply:"once"|"always"|"reject"}`; that reply returns an EMPTY body (HTTP 204) -- do not
+  JSON-parse it. If the LIST endpoint errors (opencode can fail to serialize a permission), the
+  gate is unreadable: do NOT treat that as "no gates" -- the worker is blocked on something you
+  cannot answer, so escalate rather than proceed. A gated worker waits.
+- Steer an ALREADY-running turn: `POST /session/{id}/prompt {prompt:{text}, delivery:"steer"}`.
+  Halt: `POST /session/{id}/interrupt`.
 - Read the reply: the `text` parts of the newest assistant message.
 - Unwrap the top-level `data` key on every `/api` response.
 
@@ -164,7 +173,12 @@ the one profile this kit is validated against, stamped from the qwen-opencode ta
 - **A reachable OpenCode worker target.** `opencode serve` running, bound to a worker agent, with
   a model endpoint it can actually reach and that answers. If none exists, this is produced by
   the **opencode-setup** wizard (invoke it, do not build inference here). Required.
-- **A working directory** the worker is allowed to edit in. Required.
+- **A working directory** the worker may edit in, which MUST live UNDER the directory `opencode
+  serve` was started from (its project root). This is a trap: an arbitrary external dir (e.g.
+  `/tmp/...`, even `/tmp/opencode/`) makes EVERY filesystem tool fail with a generic
+  `Unable to write` / `executed:false`, AND no serviceable permission gate ever appears
+  (external-directory access hard-denies instead of raising an "ask"), so the worker misreads it as
+  a broken sandbox and fails. Use a scratch subdir INSIDE the server's project root. Required.
 - **Model credentials** (only if the target is API-backed): by reference (an env key name),
   never a value. Optional, target-dependent.
 

@@ -51,7 +51,15 @@ Against `opencode serve` v2 (`/api`):
 - Create session: `POST /session` with `{model:{providerID,id,variant}, location:{directory}}`;
   the returned session `id` is `ses_...`.
 - Prompt / steer: `POST /session/{id}/prompt` with `{prompt:{text}, delivery:"steer"|"queue"}`.
-  `steer` injects into the running turn. `POST /session/{id}/interrupt` halts.
+  A PLAIN prompt (no `delivery`) STARTS the turn; `steer` injects into an ALREADY-running turn and
+  will NOT start one (a fresh session given a steer sits idle at zero tokens). `POST
+  /session/{id}/interrupt` halts. (Grounding found a cold receiver stuck 6+ min by starting with a
+  steer.)
+- The session `location.directory` (workdir) MUST live under the dir `opencode serve` was started
+  from (its project root). An external dir (e.g. `/tmp/...`) makes every filesystem tool fail with
+  a generic `Unable to write`/`executed:false` AND raises NO serviceable gate (external-directory
+  hard-denies instead of asking), so the worker misreads a broken sandbox. Our tests only passed
+  because `.work/...` is inside the repo; grounding from `/tmp` surfaced this.
 - Messages: `GET /session/{id}/message` returns items with `type` in {assistant,user,system}
   (no `role`). An assistant message's `content` is a list of typed parts
   (`reasoning`/`text`/`tool`); the reply text is the `text` parts of the newest assistant
