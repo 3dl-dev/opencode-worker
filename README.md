@@ -1,98 +1,80 @@
 # opencode-worker
 
-Connect Claude Code to an **arbitrary (OpenCode, model) worker**, subscription-safe, and make
-any given (model, harness) reliable with a skillc cross-compile that carries a graded
-transfer score.
+Offload agentic work from Claude Code to a **cheaper local or API model**, subscription-safe,
+and trust the result because it is honest-graded. You keep driving Claude Code; a worker (OpenCode
+driving any model, e.g. a local Qwen on your GPU) does the labor. **It ships as a skill that sets
+itself up in your session — there is nothing to install by hand and no commands to memorize.**
 
-## Why this exists
+## Why
 
-Claude Code cannot host a foreign-model subagent: its model is session-wide, per-subagent
-provider routing is unimplemented, and a router needs an API token (not a Max/Pro
-subscription). So this does not fight the harness. It connects over the **tool boundary**:
-Opus stays the orchestrator on your subscription, and a worker (OpenCode driving any model,
-e.g. a local Qwen on GPU) does the labor for free. Nothing reroutes Claude's auth.
+Claude Code cannot host a foreign-model subagent: its model is session-wide, per-subagent provider
+routing is unimplemented, and a router needs an API token, not your Max/Pro subscription. So this
+does not fight the harness. It connects over the **tool boundary**: Claude stays the orchestrator
+on your subscription, and the worker does multi-step work for free (local) or cheap (API). Nothing
+reroutes Claude's auth. What you lose is the cosmetic native-subagent wrapper; what you keep is
+everything functional: agentic multi-step work, live mid-turn correction, permission approval under
+your control, and an honest pass/fail on the real result.
 
-What you lose is the cosmetic native-subagent wrapper. What you keep is everything functional:
-agentic multi-step work, live mid-turn correction, and permission approval under your control.
+## Use it — the skill does the work
 
-## Architecture
+Two self-building skills. Drop them in your agent's skills folder (or install the plugin); on first
+use each one **rebuilds itself against your machine, tests itself, and reports plainly** whether it
+works there. You run no setup commands.
 
-- **Driver / connector** (`src/opencode_worker.py`): drives `opencode serve` over its HTTP
-  API. Bash-callable verbs, JSON out: `start / steer / pending / approve / status / final /
-  stop / run`. The Opus loop drives a worker session through these.
-- **MCP server** (`src/opencode_worker_mcp.py`): the same control surface as MCP tools over
-  stdio, so Claude Code drives a worker with tool calls instead of the Bash CLI. Discovered
-  via the repo `.mcp.json`. Same inner call path, same subscription-safety.
-- **Target** = `(model, quant, harness, settings, environment)`, every axis a parameter.
-  `resolve_artifacts(target)` keys the worker pack (agent / settings / deltas / grade) by the full
-  target, because it is model/quant/settings sensitive. OpenCode is harness #1, Qwen3.8-27B @
-  Q6_K + MTP (the live served config, ~47 tok/s) is model #1, none a fixture. `quant` and
-  `settings` are siblings of `model` (OpenCode's wire model object takes only providerID/id/variant).
-- **Two sides** (`docs/design/artifact-architecture.md`): a Claude-side orchestrator **skill**
-  (target-agnostic, `skills/opencode-worker/`) drives the worker; an opencode-side **worker pack**
-  (`packs/<model>__<quant>__<harness>/`) carries the target's agent/system-prompt, settings, and
-  skill-pack. `scripts/build_agent.py` compiles a pack and installs its active agent.
-- **Protocol contract** (`protocol/opencode-worker-protocol.md`): the model-neutral prose the
-  worker runs under. Per-model deltas are added only by measured divergence. This is what
-  `skillc` cross-compiles per target; the graded transfer score proves the retarget worked.
-- **Worker agent** (`.opencode/agent/opencode-worker.md`): the protocol delivered as an OpenCode
-  agent's system prompt, not prepended to each task. `scripts/build_agent.py` compiles it from
-  the protocol (single source of truth); OpenCode loads it at server startup. The driver binds
-  the session to this agent and submits only the task.
+- **`opencode-setup`** — an intelligent wizard that stands up (or finds) a worker for *your*
+  environment, anywhere on the spectrum from a bare laptop to a hidden GPU rig. It looks around,
+  infers, asks you what only you know, and guides you through finding the rest: capture a model you
+  already serve, fit and serve a local model to your GPU, or wire up an API provider. It installs
+  what is missing and verifies the worker is actually reachable.
+- **`opencode-worker`** — delegate a scoped, checkable task to that worker and **honest-grade** it.
+  It is the entry point: if no worker exists yet, it invokes `opencode-setup` for you first, then
+  drives the worker, gates its permissions under your control, steers it mid-run, and returns a
+  binary verdict on the *real* result.
 
-## Control surface (proven, ground-truthed)
+That is the whole user experience: install the skill, ask it to offload a task, approve or steer as
+it goes. The skills carry their own recipe and grade themselves on your setup — if they can't reach
+the author's quality on your machine, they tell you so instead of quietly doing the wrong thing.
 
-| Capability | Evidence (`tests/`) |
-|---|---|
-| Plumbing (create/status/pending/messages/interrupt) | `structural_test.py` |
-| Agentic multi-step | `proof_run.py`, wrote `notes.txt` = apple/banana/cherry |
-| Live mid-turn steer | `steer_proof.py`, redirected apples to oranges at 12s; final file all oranges |
-| Our-side permissions | `perm_proof.py`, `write` gated `ask`, written only after driver approval |
-| First graded episode | `graded_episode.py`, Qwen under protocol scored 3/3 AND honestly said DONE only after the test passed |
-| MCP surface (stdio) | `mcp_smoke.py`, all 8 tools over the real transport; ground-truthed write on disk |
-| Protocol via agent config | `agent_smoke.py`, agent system prompt == protocol, session bound to it, task run with no prepend |
+The shippable files are `skills/opencode-worker/opencode-worker.skill.md` and
+`skills/opencode-setup/opencode-setup.skill.md` (self-contained; they fetch nothing).
 
-All checks are independent of the model's self-report (the honest-grade discipline).
+## The honest grade (the point)
 
-## Use
+The worker's "DONE" is a claim, not evidence. Every outcome is checked by execution against what
+the task actually requires — does it do what it must, and only what it must — independent of the
+worker's self-report. The result is binary: **built** only when every check passes, otherwise
+**honest-failure**. A weak local model that fails *honestly* is safe to delegate to; that discipline
+is carried in the skill as prose, followed in your session.
 
-Prerequisites: `opencode` (>= 1.18.18), a provider in `~/.config/opencode/opencode.json`
-(here `mainframe-qwen38`), and a served model. Then:
+## How it works (internals)
 
-```bash
-python3 scripts/build_agent.py            # compile the protocol -> .opencode/agent/opencode-worker.md
-cd <repo> && opencode serve --port 47611 --hostname 127.0.0.1 &   # from the repo root: loads the agent
-# the driver submits only the task; the protocol is the worker agent's system prompt.
-python3 src/opencode_worker.py start --dir /path/to/work --task "..."   # -> {"session": "ses_..."}
-python3 src/opencode_worker.py pending --session ses_...                 # gates awaiting decision
-python3 src/opencode_worker.py approve --session ses_... --req <id> --decision once
-python3 src/opencode_worker.py steer   --session ses_... --msg "correction"
-python3 src/opencode_worker.py status  --session ses_...
-python3 src/opencode_worker.py final   --session ses_...
-# or all-in-one with an auto-approve policy:
-python3 src/opencode_worker.py run --dir /path/to/work --task "..." --auto once
+You don't need any of this to use it, but if you're curious:
+
+- **Two sides, one seam.** The Claude-side skills above orchestrate; an opencode-side **worker
+  pack** (`packs/<model>__<quant>__<harness>/`) carries the target's system prompt, settings, and
+  earned grade. The seam between them is the **target** `(model, quant, harness, settings, env)` —
+  every axis a parameter, none a fixture, because a different model/quant/serving-setting needs a
+  different pack. See `docs/design/artifact-architecture.md`.
+- **Protocol as system prompt.** The worker runs under a strict, model-neutral protocol
+  (`protocol/opencode-worker-protocol.md`) delivered as its OpenCode agent's system prompt, not
+  prepended per task. Per-target corrections are added only by *measured* divergence.
+- **Grounding.** How a target earns its grade: run it on real work, find where it falls off,
+  correct the target's delta (prose), re-verify. `skillc` owns the method (`loss = score(reference)
+  - score(target)`); this repo carries the connector and its packaging as a skill.
+- **The connector** (`src/opencode_worker.py`, and an MCP server `src/opencode_worker_mcp.py`) is
+  the deterministic driver the skill's prose leans on — a stable client for `opencode serve`. It is
+  build/dev tooling, not something a receiver runs by hand.
+
+## Repo layout
+
 ```
-
-Or drive it from Claude Code as an **MCP server** (same control surface, cleaner than the CLI).
-The repo `.mcp.json` registers it, so Claude Code exposes the tools `mcp__opencode-worker__{start,
-steer, pending, approve, status, final, stop, run}`. Run it standalone with:
-
-```bash
-OPENCODE_BASE=http://127.0.0.1:47611/api python3 src/opencode_worker_mcp.py   # stdio
+skills/opencode-worker/     the Claude-side binder skill (self-building) + its template + SKILL.md
+skills/opencode-setup/      the Claude-side setup wizard skill (self-building) + template + SKILL.md
+protocol/                   the model-neutral worker protocol (source of truth)
+packs/<target>/             the target-keyed worker pack (agent, manifest, earned grade)
+seed/rebuild.skill.md       the canonical rebuild recipe stamped into each self-building skill
+scripts/                    build_agent.py (compile a pack), emit_skill.py (emit a skill), grounding
+src/                        the connector: driver + MCP server (internals)
+docs/design/                the architecture and setup-flow design records
+tests/                      re-runnable checks (smoke, mcp_smoke, agent_smoke, target keying)
 ```
-
-`final` returns the worker's self-report, which is a claim, not evidence: ground-truth the real
-result yourself before treating a task as built (the honest grade). Re-runnable end-to-end check:
-`python3 tests/mcp_smoke.py`.
-
-Subscription-safe: the connector only ever talks to the local opencode server.
-
-## Status
-
-Working solution at the connector level, now exposed as an MCP server for Claude Code
-(`src/opencode_worker_mcp.py` + `.mcp.json`). Next: expand the graded co-optimization loop
-across more tasks and targets (routing each divergence to the model delta or the driver
-protocol); deliver the protocol as a system prompt via agent config (not prepended to the
-task); bundle as a skillc self-building skill (`skills/opencode-worker/`).
-
-Spec of record: `dap:docs/specs/opencode-worker-integration.md`.
