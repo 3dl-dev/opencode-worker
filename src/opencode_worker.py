@@ -157,8 +157,16 @@ class OpenCodeWorker:
                          {"prompt": {"text": msg}, "delivery": "steer"})
 
     def pending(self, sid):
-        """permission asks currently blocking."""
-        r = self._req("GET", f"/session/{sid}/permission")
+        """permission asks currently blocking. A transient server error listing them (e.g. opencode
+        400s on a permission whose metadata it cannot serialize) must NOT crash a long poll loop:
+        treat it as "nothing answerable this tick" and let the next poll retry. Only 4xx/5xx are
+        swallowed; a real connection failure still raises."""
+        try:
+            r = self._req("GET", f"/session/{sid}/permission")
+        except RuntimeError as e:
+            if any(code in str(e) for code in (" -> 4", " -> 5")):  # transient HTTP status
+                return []
+            raise
         return r if isinstance(r, list) else r.get("requests", r.get("permissions", []))
 
     def reply(self, sid, req_id, decision):
