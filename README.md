@@ -44,6 +44,36 @@ cross-compiled variant (`skills/opencode-worker/opencode-worker.qwen-opencode.SK
 file plus a provenance header and that target's measured delta, so its rebuild starts already
 corrected for the model's habits.
 
+## Install
+
+Three ways to get the skills, pick one:
+
+**Claude Code plugin marketplace.** This repo is a marketplace. In Claude Code:
+
+```
+/plugin marketplace add 3dl-dev/opencode-worker
+/plugin install opencode-worker@opencode-worker
+```
+
+That installs both skills; invoke `opencode-worker` to offload a task (it pulls in `model-setup`
+when there is no model yet).
+
+**Drop-in skills folder.** Copy either self-contained file into your agent's skills directory, one
+folder per skill:
+
+```
+~/.claude/skills/opencode-worker/SKILL.md   <- skills/opencode-worker/SKILL.md
+~/.claude/skills/model-setup/SKILL.md        <- skills/model-setup/SKILL.md
+```
+
+Or, in an agent that takes a single uploaded skill file, upload the one `SKILL.md` you want. On
+first use it rebuilds and self-tests before it answers.
+
+**Pinned to a known weak target.** If your worker is specifically Qwen3.8-27B on OpenCode, use
+`skills/opencode-worker/opencode-worker.qwen-opencode.SKILL.md` instead of the canonical
+`opencode-worker/SKILL.md`; it starts already corrected for that model's habits. Everyone else uses
+the canonical source, which adapts at rebuild time.
+
 ## The honest grade (the point)
 
 The worker's "DONE" is a claim, not evidence. Every outcome is checked by execution against what

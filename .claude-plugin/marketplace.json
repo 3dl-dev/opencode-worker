@@ -1,0 +1,15 @@
+{
+  "name": "opencode-worker",
+  "owner": {
+    "name": "3dl-dev"
+  },
+  "description": "Offload agentic work from Claude Code to a cheaper local or API model, subscription-safe and honest-graded.",
+  "plugins": [
+    {
+      "name": "opencode-worker",
+      "source": ".",
+      "description": "Two self-building skills: model-setup (get a model reachable, local or API) and opencode-worker (delegate a task to it and honest-grade the result).",
+      "version": "0.1.0"
+    }
+  ]
+}

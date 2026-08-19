@@ -157,6 +157,38 @@ README.md                              overview + usage
 6. Not this repo: rebalance the Qwen tensor-split toward the 3090 (a `mainframe` k8s tuning
    item; the A4500 is the bottleneck under 0.57/0.43).
 
+## Skill build + test (the process; follow it, do not re-derive)
+
+The two skills (`skills/opencode-worker`, `skills/model-setup`) are skillc self-building files.
+
+**Build (compile).** `SKILL.md` IS the source; author/edit it directly. skillc's canonical 84-line
+rebuild recipe (`seed/rebuild.skill.md`, vendored from `skillc/seed/rebuild.skill.md`) is stamped
+VERBATIM once inside it, fenced by `<!-- BEGIN/END stamped rebuild recipe -->`; never edit inside
+that fence, and never add a build script or template language to re-stamp it (a hand-rolled
+`emit_skill.py` was removed for exactly that inversion: software instead of a skill). `SKILL.md` is
+the CANONICAL, target-agnostic source: it carries no target delta.
+
+**Cross-compile (optional, for a known weak target).** A variant `<name>.<target>.SKILL.md` = the
+source + a provenance header (right under the frontmatter) + that target's MEASURED delta, stamped
+from `skillc/seed/targets/<target>.md`. qwen-opencode is target #1
+(`opencode-worker.qwen-opencode.SKILL.md`). The delta is measured by grounding, never invented; the
+grade stays "not yet measured" until a comparative run earns it. Re-derive the variant (a one-time
+agent assembly, no committed script) whenever the source changes.
+
+**Test (ouroboros / grounding). A fix is not proven until re-grounded.** Ground the COMPILED file
+(the source, and each variant): spawn a FRESH agent (Agent tool, `general-purpose`, NOT a fork)
+given ONLY that one `SKILL.md` path and told to read nothing else in the repo. Live env: `opencode
+serve` up from the repo root, the worker agent loaded, a model served (bring Qwen up per the
+runbook). Have it delegate a small independently-verifiable task and honest-grade it; it reports
+built / honest-failure / cannot-build and where the file left it guessing. Route each finding: an
+opencode API / drive-loop fact is SKILL CONTENT -> the source; a model-mis-follow habit (relabeling
+a failed check, over-probing) is a TARGET DELTA -> `skillc/seed/targets/<target>.md`. Re-stamp the
+variant, re-ground. The transfer grade is `loss = score(claude reference) - score(target)` on the
+same tasks.
+
+**Public-copy invariant.** No em-dashes (unicode `—` or prose ` -- `), and run the
+`avoid-ai-writing` pass over the README + skills before any release.
+
 ## Relationships
 
 - `dap` owns the spec (`docs/specs/opencode-worker-integration.md`, `opencode-worker-protocol.md`).
