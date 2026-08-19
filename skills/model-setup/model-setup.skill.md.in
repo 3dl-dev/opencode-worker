@@ -1,6 +1,6 @@
 ---
 name: model-setup
-description: An intelligent wizard that gets a MODEL reachable for an agent-worker to use — by HOSTING one locally on your hardware, configuring an API PROVIDER, or capturing a model you already serve — across any environment from a bare machine to a hidden rig. Harness-agnostic: it produces a model endpoint any worker harness (OpenCode, and later others) can be pointed at. Self-building: it rebuilds against the receiver's session, discovers/provisions a reachable model, and hands back the model target. Reports built / cannot-build honestly.
+description: An intelligent wizard that gets a MODEL reachable for an agent-worker to use, by HOSTING one locally on your hardware, configuring an API PROVIDER, or capturing a model you already serve, across any environment from a bare machine to a hidden rig. Harness-agnostic: it produces a model endpoint any worker harness (OpenCode, and later others) can be pointed at. Self-building: it rebuilds against the receiver's session, discovers/provisions a reachable model, and hands back the model target. Reports built / cannot-build honestly.
 ---
 
 <!-- What ships vs what runs at runtime -->
@@ -14,7 +14,7 @@ profile; it is not a template every receiver matches.
 This skill's job ends at a reachable MODEL. Wiring a specific harness (OpenCode, etc.) to that
 model is the worker skill's job, so the same model setup seams cleanly under any harness.
 
-- transfer measure: earned at runtime, per-user, and living — did the wizard establish reachable
+- transfer measure: earned at runtime, per-user, and living: did the wizard establish reachable
   inference in the receiver's real environment (JIT, see acceptance).
 
 ## This skill builds itself before its first answer
@@ -47,15 +47,15 @@ Meet each receiver where they are, from newbie to devoperator; match hand-holdin
 The receiver is the authority on their own environment.
 
 **The flow.** DISCOVER (orient, above) -> DECIDE the model `(model, quant, ...)`. If a server is
-already serving a model, CAPTURE it -- fastest, no install. Otherwise the two real options are
+already serving a model, CAPTURE it: fastest, no install. Otherwise the two real options are
 co-equal, chosen by what is VIABLE and the receiver's PREFERENCE (cost, privacy, speed, quality),
-not a fixed order: (a) HOST a model LOCALLY when there is capable hardware -- fit weight-vs-VRAM
+not a fixed order: (a) HOST a model LOCALLY when there is capable hardware: fit weight-vs-VRAM
 with KV headroom on their accelerator, confirm at load, not from a table; or (b) an API PROVIDER
 when a key is present or they prefer it. Present the viable ones and let them choose; recommend, do
 not force, and confirm before any download or server start. -> PROVISION: for local, pull the
 weights (prefer an MTP-bearing GGUF for llama.cpp) and start a server (llama.cpp / ollama / etc.)
 until healthy; for API, resolve the provider's base URL and key by reference. Do NOT configure any
-harness here -- that is the worker's job. Subscription-safe: only the model endpoint, never Claude
+harness here; that is the worker's job. Subscription-safe: only the model endpoint, never Claude
 Code's own auth. -> VERIFY reachable: hit the model endpoint directly (an OpenAI-compatible
 `/v1/chat/completions` or the server's health/props) and confirm a trivial completion returns.
 

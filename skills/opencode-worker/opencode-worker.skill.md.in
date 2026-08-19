@@ -6,7 +6,7 @@ description: Delegate a scoped, independently-verifiable agentic task from Claud
 <!-- What ships vs what runs at runtime -->
 This file ships the **source and the kit**, not a baked result. The cross-compile (bending the
 outcome out of the receiver's target) and the grounding (earning the transfer grade) both happen
-at RUNTIME, in the receiver's session, against the receiver's actual `(model, agent)` — the only
+at RUNTIME, in the receiver's session, against the receiver's actual `(model, agent)`, the only
 place their target exists. We carry what Claude needs to do that there: the protocol core, the
 carried target profiles (source), the honest-grade harness, and the ladder. `qwen-opencode` is
 the target this kit is validated against and one carried profile; it is not a pin.
@@ -18,7 +18,7 @@ the target this kit is validated against and one carried profile; it is not a pi
 ## This skill builds itself before its first answer
 
 Before acting, run the rebuild recipe below against THIS session. Resolve the binds; identify the
-receiver's target; **cross-compile against it** — rebuild the instructions from the carried
+receiver's target; **cross-compile against it**: rebuild the instructions from the carried
 definition and, if a carried target profile matches the target, stack its corrections; if it is a
 new target, measure and ground one. Drive the ladder to its known-good states as far as the
 target reaches, then continue grounding JIT on real work. The carried definition is the authority,
@@ -34,19 +34,19 @@ You are the orchestrator (Claude Code). You delegate a task to an OpenCode worke
 boundary and grade the result yourself. You never route Claude Code's own auth anywhere; you
 talk only to the local `opencode serve` HTTP API and the model endpoint behind it.
 
-**First, ensure a worker target exists — bootstrap the OpenCode harness if needed.** OpenCode is
+**First, ensure a worker target exists; bootstrap the OpenCode harness if needed.** OpenCode is
 this worker's substrate, so standing it up is part of making the worker exist. Before delegating,
 check whether `opencode serve` is running with the worker agent loaded and a reachable model. If
 so, use it. If NOT:
 - Ensure a reachable MODEL first. If there is none, INVOKE the **model-setup** skill (host local /
   configure API / capture an already-served model); it hands back a model endpoint and its
-  `(model, quant, key-ref)`. Do NOT stand up inference yourself — that is model-setup's job.
+  `(model, quant, key-ref)`. Do NOT stand up inference yourself; that is model-setup's job.
 - Then install `opencode` if absent, configure its provider to point at that model endpoint, start
   `opencode serve` from a project root, and compile + load the worker agent (its system prompt is
   the protocol below).
 
 Compose model-setup by invoking the skill, never by reaching into its internals. This split means
-the same model setup seams under any harness — a future `pi-worker` or `hermes-worker` bootstraps
+the same model setup seams under any harness: a future `pi-worker` or `hermes-worker` bootstraps
 its own harness the same way and reuses model-setup unchanged.
 
 **The worker runs under a strict protocol (install it as the worker agent's system prompt, not
@@ -66,15 +66,15 @@ actually passed, else HONEST-FAILURE, never relabeling a failing check.
 - Poll turn state from the NEWEST assistant message's `finish`: `tool-calls` = mid-turn (keep
   polling), `stop`/`length` = done, `error` = failed turn. Find the newest message by its greatest
   `time.created`, do NOT assume array position: `GET /session/{id}/message` returns items
-  NEWEST-FIRST here (index 0 is newest, not last) -- take `[-1]` and you will read a stale
+  NEWEST-FIRST here (index 0 is newest, not last): take `[-1]` and you will read a stale
   mid-turn message and think a finished turn is still running. The session object has no usable
   status field; do not poll it alone.
 - Service permission gates PROMPTLY. The worker fires several tool calls in quick succession, so
   poll `GET /session/{id}/permission` on a short interval (~1s, not every several seconds) or you
   miss the window and it stalls. Reply `POST /session/{id}/permission/{req}/reply
-  {reply:"once"|"always"|"reject"}`; that reply returns an EMPTY body (HTTP 204) -- do not
+  {reply:"once"|"always"|"reject"}`; that reply returns an EMPTY body (HTTP 204), do not
   JSON-parse it. If the LIST endpoint errors (opencode can fail to serialize a permission), the
-  gate is unreadable: do NOT treat that as "no gates" -- the worker is blocked on something you
+  gate is unreadable: do NOT treat that as "no gates"; the worker is blocked on something you
   cannot answer, so escalate rather than proceed. A gated worker waits.
 - Steer an ALREADY-running turn: `POST /session/{id}/prompt {prompt:{text}, delivery:"steer"}`.
   Halt: `POST /session/{id}/interrupt`.
