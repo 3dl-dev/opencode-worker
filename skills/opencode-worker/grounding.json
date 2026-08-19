@@ -1,0 +1,43 @@
+{
+  "what": "Clean-room drivability grounding of the released opencode-worker SKILL.md: can a cold agent, given ONLY this one file and nothing else in the repo, drive the live worker and honest-grade the result? This is the skill-file test, distinct from the worker's task-capability grade (packs/<target>/grade.json).",
+  "method": "Fresh general-purpose agent per run (not a fork), handed only skills/opencode-worker/SKILL.md and the live-env entry facts (server url, agent name, model ids, workdir-root rule). It delegates a small independently-verifiable task to the worker and grades by its OWN execution, never the worker's DONE. API-fact findings route to this source file; a fix is not proven until re-grounded.",
+  "date": "2026-08-19",
+  "target": "qwen3.8-27b Q6_K on opencode serve v2, live",
+  "runs": [
+    {
+      "n": 1,
+      "on": "released file (pre-fix)",
+      "task": "roman_to_int(s)",
+      "outcome": "built",
+      "independent_check": "7/7 assertions pass on the real file",
+      "drivable_from_file_alone": true,
+      "gaps_found": [
+        "endpoint paths written bare (POST /session ...), /api prefix only in prose: a literal receiver would 404",
+        "permission-ask entry shape (its id field) assumed, not stated"
+      ]
+    },
+    {
+      "n": 2,
+      "on": "after first fix attempt",
+      "task": "to_base(n,b)",
+      "outcome": "built (6/6), but literal-text-insufficient",
+      "caught": "the run-1 message-shape gap report was itself wrong (that agent had probed defensively). Coding strictly to my applied fix (info wrapper / parts) stalled turn-state detection. Live API truth: fields are TOP-LEVEL (no info wrapper), parts array is named content, not parts. This matches the long-standing CLAUDE.md facts; my edit had introduced a correctness bug, now reverted to reality."
+    },
+    {
+      "n": 3,
+      "on": "corrected file",
+      "task": "gcd(a,b) + lcm(a,b)",
+      "outcome": "built",
+      "independent_check": "6/6 assertions pass on the real file",
+      "literal_text_sufficient": true,
+      "confirmed_against_live_api": [
+        "/api-prefixed endpoint paths",
+        "type/finish/time.created at item TOP LEVEL (no info wrapper)",
+        "reply text in the content list (type==text), not parts",
+        "permission ask id used as the reply path segment (HTTP 204)"
+      ],
+      "remaining_gaps": "none that blocked or forced a guess"
+    }
+  ],
+  "verdict": "A cold session following only the SKILL.md drives the live worker to a correct, honest-graded build. Three fixes earned by grounding are folded into the source and the qwen variant: (1) /api path prefix, (2) explicit message shape (top-level fields + content parts), (3) permission-ask id. The worker's own task capability (not this file's drivability) is graded separately in packs/qwen3.8-27b__q6_k__opencode/."
+}

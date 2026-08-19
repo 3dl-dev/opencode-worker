@@ -131,32 +131,39 @@ permission gate as authoritative and never routes around it; treats a steer as a
 correction to apply immediately; and reports a BINARY outcome, DONE only if every required check
 actually passed, else HONEST-FAILURE, never relabeling a failing check.
 
-**Drive the worker over `opencode serve` (v2 `/api`) with ordinary tools (curl):**
-- Create a session: `POST /session {agent, model:{providerID,id}, location:{directory}}`; bind
-  it to the worker agent by name.
-- START the turn with a PLAIN prompt (this is what begins the turn): `POST /session/{id}/prompt
+**Drive the worker over `opencode serve` with ordinary tools (curl). EVERY path below is under the
+v2 `/api` prefix: write `POST /api/session`, not `POST /session` (a bare `/session` hits the web UI
+or 404s). Unwrap the top-level `data` key on every `/api` response.**
+- Create a session: `POST /api/session {agent, model:{providerID,id}, location:{directory}}`; bind
+  it to the worker agent by name. The response `data.id` is the `ses_...` session id used below.
+- START the turn with a PLAIN prompt (this is what begins the turn): `POST /api/session/{id}/prompt
   {prompt:{text}}`, the task only, never the protocol. Do NOT set `delivery:"steer"` on the first
   prompt: a steer only injects into an ALREADY-running turn and will not start one, so a fresh
   session given a steer just sits idle at zero tokens. If a turn does not start, you sent a steer,
   not a plain prompt.
 - Poll turn state from the NEWEST assistant message's `finish`: `tool-calls` = mid-turn (keep
-  polling), `stop`/`length` = done, `error` = failed turn. Find the newest message by its greatest
-  `time.created`, do NOT assume array position: `GET /session/{id}/message` returns items
-  NEWEST-FIRST here (index 0 is newest, not last): take `[-1]` and you will read a stale
-  mid-turn message and think a finished turn is still running. The session object has no usable
+  polling), `stop`/`length` = done, `error` = failed turn. `GET /api/session/{id}/message` returns
+  a list of items each shaped `{id, type, time:{created}, finish, content:[...], ...}`. `type`
+  (`assistant`/`user`/`system`), `finish`, and `time.created` are all at the item's TOP LEVEL:
+  there is NO `info` wrapper, read them directly. Find the newest assistant item by its greatest
+  `time.created`, do NOT assume array position: the list is NEWEST-FIRST here (index 0 is newest,
+  not last), so select by max `time.created` and you stay off a stale mid-turn message that would
+  make a finished turn look like it is still running. The session object itself has no usable
   status field; do not poll it alone.
 - Service permission gates PROMPTLY. The worker fires several tool calls in quick succession, so
-  poll `GET /session/{id}/permission` on a short interval (~1s, not every several seconds) or you
-  miss the window and it stalls. Reply `POST /session/{id}/permission/{req}/reply
+  poll `GET /api/session/{id}/permission` on a short interval (~1s, not every several seconds) or
+  you miss the window and it stalls. Each pending ask in that list is shaped `{id, ...}`; use its
+  `id` as the `{req}` in the reply path. Reply `POST /api/session/{id}/permission/{req}/reply
   {reply:"once"|"always"|"reject"}`; that reply returns an EMPTY body (HTTP 204), do not
   JSON-parse it. If the LIST endpoint errors (opencode can fail to serialize a permission), the
   gate is unreadable: do NOT treat that as "no gates"; the worker is blocked on something you
   cannot answer, so escalate rather than proceed. A gated worker waits.
-- Steer an ALREADY-running turn: `POST /session/{id}/prompt {prompt:{text}, delivery:"steer"}`.
-  Halt a running turn: `POST /session/{id}/interrupt`. Tear a finished session down when you are
-  done with it: `DELETE /session/{id}` (returns HTTP 200).
-- Read the reply: the `text` parts of the newest assistant message.
-- Unwrap the top-level `data` key on every `/api` response.
+- Steer an ALREADY-running turn: `POST /api/session/{id}/prompt {prompt:{text}, delivery:"steer"}`.
+  Halt a running turn: `POST /api/session/{id}/interrupt`. Tear a finished session down when you
+  are done with it: `DELETE /api/session/{id}` (returns HTTP 200).
+- Read the reply: the `text` parts of the newest assistant item, i.e. the entries with
+  `type == "text"` in that item's `content` list. The parts array is named `content` (not `parts`);
+  it also holds `reasoning` and `tool` parts, which you skip.
 
 **The honest grade (the whole point).** The worker's DONE is a claim, not evidence. Define the
 task's acceptance as an independent check YOU run on the real result (a file's content, a test's
