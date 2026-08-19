@@ -9,7 +9,7 @@
       "name": "opencode-worker",
       "source": ".",
       "description": "Two self-building skills: model-setup (get a model reachable, local or API) and opencode-worker (delegate a task to it and honest-grade the result).",
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   ]
 }

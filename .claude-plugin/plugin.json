@@ -1,7 +1,7 @@
 {
   "name": "opencode-worker",
   "description": "Set up a cheap local or API model and delegate honest-graded agentic work to it from Claude Code, subscription-safe. Ships two self-building skills: model-setup and opencode-worker.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "3dl-dev"
   }
