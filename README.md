@@ -104,8 +104,8 @@ You don't need any of this to use it, but if you're curious:
 ## Repo layout
 
 ```
-skills/opencode-worker/     SKILL.md (self-building distributable) + .skill.md.in (source template)
-skills/model-setup/         SKILL.md (self-building distributable) + .skill.md.in (source template)
+skills/opencode-worker/     SKILL.md (self-building source; edit directly, no template)
+skills/model-setup/         SKILL.md (self-building source; edit directly, no template)
 protocol/                   the model-neutral worker protocol (source of truth)
 packs/<target>/             the target-keyed worker pack (agent, manifest, earned grade)
 scripts/                    build_agent.py (compile a pack) + grounding harnesses
