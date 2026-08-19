@@ -60,6 +60,7 @@ Against `opencode serve` v2 (`/api`):
   a generic `Unable to write`/`executed:false` AND raises NO serviceable gate (external-directory
   hard-denies instead of asking), so the worker misreads a broken sandbox. Our tests only passed
   because `.work/...` is inside the repo; grounding from `/tmp` surfaced this.
+- `GET /session/{id}/message` returns items NEWEST-FIRST (index 0 is newest). Find the newest assistant message by max `time.created`, never `[-1]` -- grounding caught a receiver reading a stale mid-turn message and misjudging a finished turn as running.
 - Messages: `GET /session/{id}/message` returns items with `type` in {assistant,user,system}
   (no `role`). An assistant message's `content` is a list of typed parts
   (`reasoning`/`text`/`tool`); the reply text is the `text` parts of the newest assistant

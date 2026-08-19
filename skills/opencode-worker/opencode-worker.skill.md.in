@@ -64,7 +64,10 @@ actually passed, else HONEST-FAILURE, never relabeling a failing check.
   session given a steer just sits idle at zero tokens. If a turn does not start, you sent a steer,
   not a plain prompt.
 - Poll turn state from the NEWEST assistant message's `finish`: `tool-calls` = mid-turn (keep
-  polling), `stop`/`length` = done, `error` = failed turn. The session object has no usable
+  polling), `stop`/`length` = done, `error` = failed turn. Find the newest message by its greatest
+  `time.created`, do NOT assume array position: `GET /session/{id}/message` returns items
+  NEWEST-FIRST here (index 0 is newest, not last) -- take `[-1]` and you will read a stale
+  mid-turn message and think a finished turn is still running. The session object has no usable
   status field; do not poll it alone.
 - Service permission gates PROMPTLY. The worker fires several tool calls in quick succession, so
   poll `GET /session/{id}/permission` on a short interval (~1s, not every several seconds) or you
