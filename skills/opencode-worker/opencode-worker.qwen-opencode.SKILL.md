@@ -159,7 +159,8 @@ actually passed, else HONEST-FAILURE, never relabeling a failing check.
   gate is unreadable: do NOT treat that as "no gates"; the worker is blocked on something you
   cannot answer, so escalate rather than proceed. A gated worker waits.
 - Steer an ALREADY-running turn: `POST /session/{id}/prompt {prompt:{text}, delivery:"steer"}`.
-  Halt: `POST /session/{id}/interrupt`.
+  Halt a running turn: `POST /session/{id}/interrupt`. Tear a finished session down when you are
+  done with it: `DELETE /session/{id}` (returns HTTP 200).
 - Read the reply: the `text` parts of the newest assistant message.
 - Unwrap the top-level `data` key on every `/api` response.
 
