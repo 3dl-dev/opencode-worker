@@ -1,6 +1,6 @@
 ---
 name: opencode-setup
-description: An intelligent wizard that sets up (or locates) a model an OpenCode worker can use, across any environment from a bare machine to a hidden rig. Self-building: it rebuilds against the receiver's session, then discovers/provisions a reachable model and hands the target to opencode-worker. Reports built / cannot-build honestly.
+description: An intelligent wizard that gets a model an OpenCode worker can use — by HOSTING one locally on your hardware, configuring an API PROVIDER, or capturing a model you already serve — across any environment from a bare machine to a hidden rig. Self-building: it rebuilds against the receiver's session, discovers/provisions a reachable model, and hands the target to opencode-worker. Reports built / cannot-build honestly.
 ---
 
 <!-- What ships vs what runs at runtime -->
@@ -43,14 +43,17 @@ wizard:
 Meet each receiver where they are, from newbie to devoperator; match hand-holding to their level.
 The receiver is the authority on their own environment.
 
-**The flow.** DISCOVER (orient, above) -> DECIDE the serving side of the target `(model, quant,
-...)`: capture an already-served rig (no install); else fit the best model a real local
-accelerator runs (reason weight-vs-VRAM with KV headroom, confirm at load, not from a table);
-else an API provider whose key is present; recommend and confirm before any download or server
-start. -> PROVISION: install opencode if absent; local, pull weights (prefer an MTP-bearing GGUF
-for llama.cpp) and serve until healthy; API, write the provider block with the key. Subscription
--safe: only the local opencode server and the model endpoint, never Claude Code's own auth. ->
-VERIFY reachable: a trivial completion returns; note the `(model, quant, settings)` stood up.
+**The flow.** DISCOVER (orient, above) -> DECIDE the target `(model, quant, ...)`. If a rig is
+already serving a model, CAPTURE it -- fastest, no install. Otherwise the two real options are
+co-equal, chosen by what is VIABLE and the receiver's PREFERENCE (cost, privacy, speed, quality),
+not a fixed order: (a) HOST a model LOCALLY when there is capable hardware -- fit weight-vs-VRAM
+with KV headroom on their accelerator, confirm at load, not from a table; or (b) configure an API
+PROVIDER when a key is present or they prefer it. Present the viable ones and let them choose;
+recommend, do not force, and confirm before any download or server start. -> PROVISION: install
+opencode if absent; for local, pull weights (prefer an MTP-bearing GGUF for llama.cpp) and serve
+until healthy; for API, write the provider block with the key by reference. Subscription-safe:
+only the local opencode server and the model endpoint, never Claude Code's own auth. -> VERIFY
+reachable: a trivial completion returns; note the `(model, quant, settings)` stood up.
 
 ## Carried environment profiles (source)
 
