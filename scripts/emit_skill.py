@@ -27,7 +27,9 @@ def emit(template_path):
     if "<!-- EMIT:" not in tpl:
         raise SystemExit(f"no <!-- EMIT: ... --> placeholder in {template_path}")
     emitted = re.sub(r"<!-- EMIT:.*?-->", lambda _m: stamp, tpl, count=1, flags=re.DOTALL)
-    out = template_path[:-3] if template_path.endswith(".in") else template_path + ".out"
+    # the emitted, self-contained product IS the skill's SKILL.md (the name an agent auto-loads);
+    # the .in template beside it is the source. One dir = source template + shippable SKILL.md.
+    out = os.path.join(os.path.dirname(template_path), "SKILL.md")
     with open(out, "w") as f:
         f.write(emitted)
     return out, len(emitted.splitlines())

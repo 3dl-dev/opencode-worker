@@ -23,7 +23,7 @@ quant, and provider are open sets handled by the agent's reasoning, never a hard
 
 Setting up the inference and binding Claude Code to it are DIFFERENT units, not one flow:
 
-- **opencode-setup (the wizard)** owns DISCOVER -> DECIDE -> PROVISION -> VERIFY-REACHABLE. It
+- **model-setup (the wizard)** owns DISCOVER -> DECIDE -> PROVISION -> VERIFY-REACHABLE. It
   ends at a model opencode can actually reach and the `(model, quant, settings)` it stood up.
 - **opencode-worker (the binder)** owns COMPILE -> DRIVE -> GRADE -> CROSS-COMPILE. It takes that
   target and makes Opus able to drive it as a worker.

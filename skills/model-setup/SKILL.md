@@ -1,17 +1,20 @@
 ---
-name: opencode-setup
-description: An intelligent wizard that gets a model an OpenCode worker can use — by HOSTING one locally on your hardware, configuring an API PROVIDER, or capturing a model you already serve — across any environment from a bare machine to a hidden rig. Self-building: it rebuilds against the receiver's session, discovers/provisions a reachable model, and hands the target to opencode-worker. Reports built / cannot-build honestly.
+name: model-setup
+description: An intelligent wizard that gets a MODEL reachable for an agent-worker to use — by HOSTING one locally on your hardware, configuring an API PROVIDER, or capturing a model you already serve — across any environment from a bare machine to a hidden rig. Harness-agnostic: it produces a model endpoint any worker harness (OpenCode, and later others) can be pointed at. Self-building: it rebuilds against the receiver's session, discovers/provisions a reachable model, and hands back the model target. Reports built / cannot-build honestly.
 ---
 
 <!-- What ships vs what runs at runtime -->
-This file ships the **wizard method and the kit**, not a fixed procedure baked to one machine.
-The discovery, provisioning, and grounding all happen at RUNTIME, in the receiver's session,
-against the receiver's actual environment, which only they and their machine can reveal. We carry
-the method (look / infer / ask / guide), the carried environment profiles (source), and the
+This file ships the **wizard method and the kit**, not a fixed procedure baked to one machine. The
+discovery, provisioning, and grounding all happen at RUNTIME, in the receiver's session, against
+the receiver's actual environment, which only they and their machine can reveal. We carry the
+method (look / infer / ask / guide), the carried environment profiles (source), and the
 reachability check. Our k3s stack is the environment this kit is validated against and one carried
 profile; it is not a template every receiver matches.
 
-- transfer measure: earned at runtime, per-user, and living, did the wizard establish reachable
+This skill's job ends at a reachable MODEL. Wiring a specific harness (OpenCode, etc.) to that
+model is the worker skill's job, so the same model setup seams cleanly under any harness.
+
+- transfer measure: earned at runtime, per-user, and living — did the wizard establish reachable
   inference in the receiver's real environment (JIT, see acceptance).
 
 ## This skill builds itself before its first answer
@@ -113,8 +116,8 @@ providers, and setup is not a canned probe sequence: environments run from nothi
 rig no command reveals, and much of any real setup is knowledge only the user holds. Work like a
 wizard:
 
-- **Look around** - inspect what is visible (an endpoint you were given, `opencode --version`, a
-  `nvidia-smi` for a *local* card, env keys).
+- **Look around** - inspect what is visible (an endpoint you were given, a `nvidia-smi` for a
+  *local* card, env keys, an already-running model server).
 - **Infer** - reason from partial evidence toward the likely situation.
 - **Ask** - a silent `nvidia-smi` proves nothing; a rig can hide behind networking or a cluster.
   Ask the receiver what they have and want.
@@ -124,17 +127,18 @@ wizard:
 Meet each receiver where they are, from newbie to devoperator; match hand-holding to their level.
 The receiver is the authority on their own environment.
 
-**The flow.** DISCOVER (orient, above) -> DECIDE the target `(model, quant, ...)`. If a rig is
+**The flow.** DISCOVER (orient, above) -> DECIDE the model `(model, quant, ...)`. If a server is
 already serving a model, CAPTURE it -- fastest, no install. Otherwise the two real options are
 co-equal, chosen by what is VIABLE and the receiver's PREFERENCE (cost, privacy, speed, quality),
 not a fixed order: (a) HOST a model LOCALLY when there is capable hardware -- fit weight-vs-VRAM
-with KV headroom on their accelerator, confirm at load, not from a table; or (b) configure an API
-PROVIDER when a key is present or they prefer it. Present the viable ones and let them choose;
-recommend, do not force, and confirm before any download or server start. -> PROVISION: install
-opencode if absent; for local, pull weights (prefer an MTP-bearing GGUF for llama.cpp) and serve
-until healthy; for API, write the provider block with the key by reference. Subscription-safe:
-only the local opencode server and the model endpoint, never Claude Code's own auth. -> VERIFY
-reachable: a trivial completion returns; note the `(model, quant, settings)` stood up.
+with KV headroom on their accelerator, confirm at load, not from a table; or (b) an API PROVIDER
+when a key is present or they prefer it. Present the viable ones and let them choose; recommend, do
+not force, and confirm before any download or server start. -> PROVISION: for local, pull the
+weights (prefer an MTP-bearing GGUF for llama.cpp) and start a server (llama.cpp / ollama / etc.)
+until healthy; for API, resolve the provider's base URL and key by reference. Do NOT configure any
+harness here -- that is the worker's job. Subscription-safe: only the model endpoint, never Claude
+Code's own auth. -> VERIFY reachable: hit the model endpoint directly (an OpenAI-compatible
+`/v1/chat/completions` or the server's health/props) and confirm a trivial completion returns.
 
 ## Carried environment profiles (source)
 
@@ -153,23 +157,26 @@ when it is free; yield it when other work needs the cards.
 
 - **The receiver's environment**, however their accelerators are reached (bare host, a cluster, a
   hypervisor, a laptop) - established WITH the receiver, not assumed. Required.
-- **opencode** installed or installable. Required.
-- **Model credentials** for an API target: by reference (an env key name), never a value. Optional.
+- **A model runtime for local hosting** (llama.cpp, ollama, or similar) if hosting locally;
+  installable. Required only for the local-hosting path.
+- **Model credentials** for an API model: the provider's base URL and API key, by reference (an
+  env key name), never a value. Required only for the API path.
 
 ## Checks (every run obeys)
 
 - Orient to the receiver; never assume a probe reveals the environment. Ask when it is invisible.
 - Recommend and confirm before anything that downloads weights or starts/stops a server.
-- Subscription-safe: only the local opencode server and the model endpoint.
+- Subscription-safe: only the model endpoint; never Claude Code's own auth.
 - Do not stand up inference you cannot then VERIFY reachable; a model that does not answer is
   cannot-build, named, not a guess.
 
-## Acceptance: reachable inference, real and sampled (known-state)
+## Acceptance: a reachable model, real and sampled (known-state)
 
-Acceptance is a known state, not text pairs: **built** when opencode reaches a model that answers
-a trivial completion, and the `(model, quant, settings)` is named for hand-off; **cannot-build**
-when a required bind is missing, named. The difficulty ladder is the environment itself, easiest
-to hardest: an already-served endpoint -> fit-and-serve on a local card -> a hidden/veteran rig
-resolved only by asking. The real grade is per-user and JIT: across the receiver's actual setup
-attempts, did the wizard reach reachable inference, and how far up that environment ladder. Then
-hand the target to **opencode-worker**, which cross-compiles the pack for it and drives.
+Acceptance is a known state, not text pairs: **built** when the MODEL ENDPOINT itself answers a
+trivial completion (verified by hitting it directly), and the `(model, quant, endpoint, key-ref)`
+is named for hand-off; **cannot-build** when a required bind is missing, named. The difficulty
+ladder is the environment itself, easiest to hardest: an already-served endpoint -> fit-and-serve
+on a local card -> a hidden/veteran rig resolved only by asking. The real grade is per-user and
+JIT: across the receiver's actual setup attempts, did the wizard reach reachable inference, and how
+far up that environment ladder. Then hand the model target to the worker skill (e.g.
+**opencode-worker**), which points its harness at this endpoint and drives.

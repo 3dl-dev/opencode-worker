@@ -21,22 +21,24 @@ Two self-building skills. Drop them in your agent's skills folder (or install th
 use each one **rebuilds itself against your machine, tests itself, and reports plainly** whether it
 works there. You run no setup commands.
 
-- **`opencode-setup`** — an intelligent wizard that stands up (or finds) a worker for *your*
-  environment, anywhere on the spectrum from a bare laptop to a hidden GPU rig. It looks around,
-  infers, asks you what only you know, and guides you through finding the rest: capture a model you
-  already serve, fit and serve a local model to your GPU, or wire up an API provider. It installs
-  what is missing and verifies the worker is actually reachable.
-- **`opencode-worker`** — delegate a scoped, checkable task to that worker and **honest-grade** it.
-  It is the entry point: if no worker exists yet, it invokes `opencode-setup` for you first, then
-  drives the worker, gates its permissions under your control, steers it mid-run, and returns a
-  binary verdict on the *real* result.
+- **`model-setup`** — an intelligent wizard that gets a **model** reachable for *your* environment,
+  anywhere on the spectrum from a bare laptop to a hidden GPU rig. It looks around, infers, asks you
+  what only you know, and guides you through the rest: capture a model you already serve, fit and
+  host one locally on your GPU, or configure an API provider. Harness-agnostic — it produces a model
+  endpoint any worker can be pointed at.
+- **`opencode-worker`** — delegate a scoped, checkable task to a worker and **honest-grade** it. It
+  is the entry point: if no worker exists yet, it invokes `model-setup` for the model and stands up
+  the OpenCode harness onto it, then drives the worker, gates its permissions under your control,
+  steers it mid-run, and returns a binary verdict on the *real* result.
 
 That is the whole user experience: install the skill, ask it to offload a task, approve or steer as
 it goes. The skills carry their own recipe and grade themselves on your setup — if they can't reach
 the author's quality on your machine, they tell you so instead of quietly doing the wrong thing.
+The split (model-setup vs a harness-specific worker) means the same model setup seams cleanly under
+future harnesses too — a `pi-worker` or `hermes-worker` would reuse `model-setup` unchanged.
 
-The shippable files are `skills/opencode-worker/opencode-worker.skill.md` and
-`skills/opencode-setup/opencode-setup.skill.md` (self-contained; they fetch nothing).
+The shippable files are `skills/opencode-worker/SKILL.md` and
+`skills/model-setup/SKILL.md` (self-contained; they fetch nothing).
 
 ## The honest grade (the point)
 
@@ -68,8 +70,8 @@ You don't need any of this to use it, but if you're curious:
 ## Repo layout
 
 ```
-skills/opencode-worker/     the Claude-side binder skill (self-building) + its template + SKILL.md
-skills/opencode-setup/      the Claude-side setup wizard skill (self-building) + template + SKILL.md
+skills/opencode-worker/     SKILL.md (self-building distributable) + .skill.md.in (source template)
+skills/model-setup/         SKILL.md (self-building distributable) + .skill.md.in (source template)
 protocol/                   the model-neutral worker protocol (source of truth)
 packs/<target>/             the target-keyed worker pack (agent, manifest, earned grade)
 seed/rebuild.skill.md       the canonical rebuild recipe stamped into each self-building skill

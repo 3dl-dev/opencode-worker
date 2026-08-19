@@ -34,12 +34,20 @@ You are the orchestrator (Claude Code). You delegate a task to an OpenCode worke
 boundary and grade the result yourself. You never route Claude Code's own auth anywhere; you
 talk only to the local `opencode serve` HTTP API and the model endpoint behind it.
 
-**First, ensure a worker target exists.** Before delegating, check whether `opencode serve` is
-running with a worker agent and a model endpoint that answers. If yes, use it. If NOT, do not try
-to stand up inference yourself: invoke the **opencode-setup** skill (the inference wizard), which
-hosts a local model, configures an API provider, or captures an already-served rig for this
-receiver and hands back the target. Then continue here. Compose it by invoking the skill, never by
-reaching into its internals.
+**First, ensure a worker target exists — bootstrap the OpenCode harness if needed.** OpenCode is
+this worker's substrate, so standing it up is part of making the worker exist. Before delegating,
+check whether `opencode serve` is running with the worker agent loaded and a reachable model. If
+so, use it. If NOT:
+- Ensure a reachable MODEL first. If there is none, INVOKE the **model-setup** skill (host local /
+  configure API / capture an already-served model); it hands back a model endpoint and its
+  `(model, quant, key-ref)`. Do NOT stand up inference yourself — that is model-setup's job.
+- Then install `opencode` if absent, configure its provider to point at that model endpoint, start
+  `opencode serve` from a project root, and compile + load the worker agent (its system prompt is
+  the protocol below).
+
+Compose model-setup by invoking the skill, never by reaching into its internals. This split means
+the same model setup seams under any harness — a future `pi-worker` or `hermes-worker` bootstraps
+its own harness the same way and reuses model-setup unchanged.
 
 **The worker runs under a strict protocol (install it as the worker agent's system prompt, not
 prepended per task).** The worker: does exactly the task and only that; treats a blocking
@@ -98,8 +106,9 @@ the one profile this kit is validated against, stamped from the qwen-opencode ta
 ## Binds (resolve on the receiver; a missing required one is cannot-build)
 
 - **A reachable OpenCode worker target.** `opencode serve` running, bound to a worker agent, with
-  a model endpoint it can actually reach and that answers. If none exists, this is produced by
-  the **opencode-setup** wizard (invoke it, do not build inference here). Required.
+  a model endpoint it can actually reach and that answers. If none exists, bootstrap it (see the
+  First step above): invoke **model-setup** for the model, then stand up the opencode harness onto
+  it. Required.
 - **A working directory** the worker may edit in, which MUST live UNDER the directory `opencode
   serve` was started from (its project root). This is a trap: an arbitrary external dir (e.g.
   `/tmp/...`, even `/tmp/opencode/`) makes EVERY filesystem tool fail with a generic
