@@ -4,16 +4,12 @@ description: Delegate a scoped, independently-verifiable agentic task from Claud
 ---
 
 <!-- What ships vs what runs at runtime -->
-This file ships the **source and the kit**, not a baked result. The cross-compile (bending the
-outcome out of the receiver's target) and the grounding (earning the transfer grade) both happen
-at RUNTIME, in the receiver's session, against the receiver's actual `(model, agent)`, the only
-place their target exists. We carry what Claude needs to do that there: the protocol core, the
-carried target profiles (source), the honest-grade harness, and the ladder. `qwen-opencode` is
-the target this kit is validated against and one carried profile; it is not a pin.
-
-- reference for grounding: claude (the strong-model reference; `loss = score(ref) - score(target)`)
-- transfer grade: earned at runtime, per-user, and living (JIT, see the acceptance sections);
-  "not yet measured" until the receiver's target has run real work.
+This is the CANONICAL (target-agnostic) source. It carries what Claude needs to drive an
+OpenCode worker and honest-grade it: the protocol core, the drive loop, the honest-grade harness,
+and the ladder. On first use it rebuilds against the receiver's own model. When the receiver is a
+known weak model+agent, a cross-compiled variant of this file (same content plus a provenance
+header and that target's measured delta) starts already corrected for that model's habits; the
+canonical file below carries no delta.
 
 ## This skill builds itself before its first answer
 
@@ -165,26 +161,6 @@ actually passed, else HONEST-FAILURE, never relabeling a failing check.
 task's acceptance as an independent check YOU run on the real result (a file's content, a test's
 exit, a service's health). Outcome is binary: **built** only if every check passes; otherwise
 **honest-failure**, tear down partial state, report faithfully. Never relabel a failing check.
-
-## Carried target profiles (cross-compile source)
-
-The runtime cross-compile stacks the profile matching the receiver's target; corrections are then
-binding for rebuild and run. Add profiles as targets are grounded. If the receiver's target
-matches none, the runtime grounds a new one from measured divergence (never invented). Below is
-the one profile this kit is validated against, stamped from the qwen-opencode target profile
-(how this model mis-follows any skill, not this skill's content):
-
-### qwen-opencode (model=qwen3.8-27b, agent=opencode, reference=claude)
-
-1. **A failing check is honest-failure. Never argue past it.** This model has relabeled a
-   genuinely-failed check "done" on its own judgment that the result "looked right", leaving
-   non-compliant state standing. Hold the line: the check result is the authority; one failing
-   check means honest-failure, full stop. If you think the check is wrong, say so as a finding,
-   but still report honest-failure.
-2. **Resolve with the plainest probes; do not characterize the environment beyond what the
-   recipe asks.** This model has reached for broad probes (reading `/proc`, `/etc`, `/dev`;
-   scanning for un-named tools) that trip the permission gate and, unattended, abort the run.
-   Use only the plain commands the task calls for.
 
 ## Binds (resolve on the receiver; a missing required one is cannot-build)
 

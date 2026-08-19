@@ -37,8 +37,12 @@ the author's quality on your machine, they tell you so instead of quietly doing 
 The split (model-setup vs a harness-specific worker) means the same model setup seams cleanly under
 future harnesses too: a `pi-worker` or `hermes-worker` would reuse `model-setup` unchanged.
 
-The shippable files are `skills/opencode-worker/SKILL.md` and
-`skills/model-setup/SKILL.md` (self-contained; they fetch nothing).
+The shippable files are `skills/opencode-worker/SKILL.md` and `skills/model-setup/SKILL.md`
+(self-contained; they fetch nothing). These are the canonical, target-agnostic sources: each
+rebuilds against whatever model receives it. For a known weak target there is also a
+cross-compiled variant (`skills/opencode-worker/opencode-worker.qwen-opencode.SKILL.md`): the same
+file plus a provenance header and that target's measured delta, so its rebuild starts already
+corrected for the model's habits.
 
 ## The honest grade (the point)
 
