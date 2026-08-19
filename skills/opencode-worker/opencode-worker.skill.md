@@ -114,6 +114,13 @@ You are the orchestrator (Claude Code). You delegate a task to an OpenCode worke
 boundary and grade the result yourself. You never route Claude Code's own auth anywhere; you
 talk only to the local `opencode serve` HTTP API and the model endpoint behind it.
 
+**First, ensure a worker target exists.** Before delegating, check whether `opencode serve` is
+running with a worker agent and a model endpoint that answers. If yes, use it. If NOT, do not try
+to stand up inference yourself: invoke the **opencode-setup** skill (the inference wizard), which
+hosts a local model, configures an API provider, or captures an already-served rig for this
+receiver and hands back the target. Then continue here. Compose it by invoking the skill, never by
+reaching into its internals.
+
 **The worker runs under a strict protocol (install it as the worker agent's system prompt, not
 prepended per task).** The worker: does exactly the task and only that; treats a blocking
 permission gate as authoritative and never routes around it; treats a steer as an authoritative
