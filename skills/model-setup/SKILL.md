@@ -127,18 +127,25 @@ wizard:
 Meet each receiver where they are, from newbie to devoperator; match hand-holding to their level.
 The receiver is the authority on their own environment.
 
-**The flow.** DISCOVER (orient, above) -> DECIDE the model `(model, quant, ...)`. If a server is
-already serving a model, CAPTURE it: fastest, no install. Otherwise the two real options are
-co-equal, chosen by what is VIABLE and the receiver's PREFERENCE (cost, privacy, speed, quality),
-not a fixed order: (a) HOST a model LOCALLY when there is capable hardware: fit weight-vs-VRAM
-with KV headroom on their accelerator, confirm at load, not from a table; or (b) an API PROVIDER
-when a key is present or they prefer it. Present the viable ones and let them choose; recommend, do
-not force, and confirm before any download or server start. -> PROVISION: for local, pull the
-weights (prefer an MTP-bearing GGUF for llama.cpp) and start a server (llama.cpp / ollama / etc.)
-until healthy; for API, resolve the provider's base URL and key by reference. Do NOT configure any
-harness here; that is the worker's job. Subscription-safe: only the model endpoint, never Claude
-Code's own auth. -> VERIFY reachable: hit the model endpoint directly (an OpenAI-compatible
-`/v1/chat/completions` or the server's health/props) and confirm a trivial completion returns.
+The target you produce is the tuple `(model, quant, endpoint, key-ref)` throughout: the model id,
+its quant (or "api" for a hosted model), the OpenAI-compatible base URL, and the env var NAME that
+holds the API key. For a keyless local server, key-ref is `none` (any non-empty string is accepted
+if a harness insists on one).
+
+**The flow.** DISCOVER (orient, above) -> DECIDE the target `(model, quant, endpoint, key-ref)`. If
+a server is already serving a model, CAPTURE it: fastest, no install. Otherwise the two real
+options are co-equal, chosen by what is VIABLE and the receiver's PREFERENCE (cost, privacy, speed,
+quality), not a fixed order: (a) HOST a model LOCALLY when there is capable hardware: fit
+weight-vs-VRAM with KV headroom on their accelerator, confirm at load, not from a table; or (b) an
+API PROVIDER when a key is present or they prefer it. Present the viable ones and let them choose;
+recommend, do not force, and confirm before any download or server start. -> PROVISION: for
+CAPTURE there is nothing to provision (the endpoint already answers), so go straight to VERIFY. For
+local, pull the weights (prefer an MTP-bearing GGUF for llama.cpp) and start a server (llama.cpp /
+ollama / etc.) until healthy; for API, resolve the provider's base URL and key by reference. Do NOT
+configure any harness here; that is the worker's job. Subscription-safe: only the model endpoint,
+never Claude Code's own auth. -> VERIFY reachable: hit the model endpoint directly (an
+OpenAI-compatible `/v1/chat/completions` or the server's health/props) and confirm a trivial
+completion returns.
 
 ## Carried environment profiles (source)
 
