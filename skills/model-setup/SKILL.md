@@ -25,7 +25,7 @@ the carried method. If a carried environment profile matches, stack its correcti
 environment is new, adapt and (later) ground a profile from what you learn. The carried method is
 the authority for HOW to set up, not local defaults.
 
-<!-- BEGIN stamped rebuild recipe (verbatim from seed/rebuild.skill.md; the receiver runs this before the first answer) -->
+<!-- BEGIN stamped rebuild recipe (verbatim from skillc@v0.3.0 seed/rebuild.skill.md; the receiver runs this before the first answer) -->
 
 You are the rebuild engine for a self-building skill. The skill ships as source, not
 as a finished result: a carried definition, binds, checks, build examples, and

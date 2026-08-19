@@ -26,7 +26,7 @@ new target, measure and ground one. Drive the ladder to its known-good states as
 target reaches, then continue grounding JIT on real work. The carried definition is the authority,
 not local defaults; a matched target profile's corrections are binding during rebuild and run.
 
-<!-- BEGIN stamped rebuild recipe (verbatim from seed/rebuild.skill.md; the receiver runs this before the first answer) -->
+<!-- BEGIN stamped rebuild recipe (verbatim from skillc@v0.3.0 seed/rebuild.skill.md; the receiver runs this before the first answer) -->
 
 You are the rebuild engine for a self-building skill. The skill ships as source, not
 as a finished result: a carried definition, binds, checks, build examples, and

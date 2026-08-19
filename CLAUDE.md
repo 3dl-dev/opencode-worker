@@ -162,10 +162,13 @@ README.md                              overview + usage
 The two skills (`skills/opencode-worker`, `skills/model-setup`) are skillc self-building files.
 
 **Build (compile).** `SKILL.md` IS the source; author/edit it directly. skillc's canonical 84-line
-rebuild recipe (`seed/rebuild.skill.md`, vendored from `skillc/seed/rebuild.skill.md`) is stamped
-VERBATIM once inside it, fenced by `<!-- BEGIN/END stamped rebuild recipe -->`; never edit inside
-that fence, and never add a build script or template language to re-stamp it (a hand-rolled
-`emit_skill.py` was removed for exactly that inversion: software instead of a skill). `SKILL.md` is
+rebuild recipe is stamped VERBATIM once inside it, fenced by `<!-- BEGIN/END stamped rebuild
+recipe -->`; never edit inside that fence, and never add a build script or template language to
+re-stamp it (a hand-rolled `emit_skill.py` was removed for exactly that inversion: software instead
+of a skill). The recipe's source of truth is skillc at a PINNED TAG, not a copy vendored into this
+repo: `git -C ~/projects/skillc show v0.3.0:seed/rebuild.skill.md`. To re-stamp (only when bumping
+the pin), replace the fenced span with that exact output and update the pin named in each SKILL's
+`<!-- BEGIN stamped rebuild recipe (verbatim from skillc@vX.Y.Z ...) -->` marker. `SKILL.md` is
 the CANONICAL, target-agnostic source: it carries no target delta.
 
 **Cross-compile (optional, for a known weak target).** A variant `<name>.<target>.SKILL.md` = the

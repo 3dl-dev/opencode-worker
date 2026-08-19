@@ -108,8 +108,7 @@ skills/opencode-worker/     SKILL.md (self-building distributable) + .skill.md.i
 skills/model-setup/         SKILL.md (self-building distributable) + .skill.md.in (source template)
 protocol/                   the model-neutral worker protocol (source of truth)
 packs/<target>/             the target-keyed worker pack (agent, manifest, earned grade)
-seed/rebuild.skill.md       the canonical rebuild recipe stamped into each self-building skill
-scripts/                    build_agent.py (compile a pack), emit_skill.py (emit a skill), grounding
+scripts/                    build_agent.py (compile a pack) + grounding harnesses
 src/                        the connector: driver + MCP server (internals)
 docs/design/                the architecture and setup-flow design records
 tests/                      re-runnable checks (smoke, mcp_smoke, agent_smoke, target keying)
