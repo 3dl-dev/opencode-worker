@@ -1,0 +1,32 @@
+<title>opencode-worker promos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+  :root{--ink:#0E1420;--line:#26324A;--text:#EAF0F8;--muted:#9AA7BD;--gold:#F5B454}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--ink);color:var(--text)}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;gap:26px;
+    padding:40px 24px;font-family:"Archivo",system-ui,sans-serif}
+  h1{font-size:24px;font-weight:700;letter-spacing:-.01em}
+  h1 .g{color:var(--gold)}
+  .hint{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--muted);max-width:70ch;text-align:center;line-height:1.6}
+  .row{display:flex;flex-wrap:wrap;gap:32px;justify-content:center;align-items:flex-start}
+  figure{display:flex;flex-direction:column;gap:12px;align-items:center}
+  figcaption{font-family:"JetBrains Mono",monospace;font-size:14px;color:var(--muted);letter-spacing:.06em}
+  video{height:78vh;max-height:900px;border:1px solid var(--line);border-radius:12px;
+    box-shadow:0 24px 70px #00000055;background:#0B1019;display:block}
+</style>
+<h1>opencode-worker <span class="g">promos</span></h1>
+<p class="hint">Autoplaying muted. Use the controls to scrub. To save: right-click a video, "Save video as".</p>
+<div class="row">
+  <figure>
+    <figcaption>LinkedIn &middot; 4:5</figcaption>
+    <video controls autoplay loop muted playsinline
+      src="https://raw.githubusercontent.com/3dl-dev/opencode-worker/main/marketing/promo-linkedin.mp4"></video>
+  </figure>
+  <figure>
+    <figcaption>Reddit &middot; 9:16</figcaption>
+    <video controls autoplay loop muted playsinline
+      src="https://raw.githubusercontent.com/3dl-dev/opencode-worker/main/marketing/promo-reddit.mp4"></video>
+  </figure>
+</div>
