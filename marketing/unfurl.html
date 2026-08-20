@@ -1,0 +1,72 @@
+<title>Local model offload for Claude Code</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  :root{
+    --ink:#0E1420; --panel:#0B1019; --line:#26324A;
+    --text:#EAF0F8; --muted:#9AA7BD; --dim:#6B7A93;
+    --gold:#F5B454; --green:#5FBE8E; --opus:#C4B5FD; --qwen:#67D3C4;
+    --mono:"JetBrains Mono",ui-monospace,monospace; --sans:"Archivo",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--ink)}
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+    font-family:var(--sans);color:var(--text);-webkit-font-smoothing:antialiased}
+
+  .card{width:100%;max-width:1200px;aspect-ratio:1200/630;container-type:inline-size;
+    position:relative;overflow:hidden;border-radius:1.4cqw;border:1px solid var(--line);
+    background:radial-gradient(130% 150% at 0% 0%,#18223660 0%,#0E142000 55%),linear-gradient(160deg,#131C2B 0%,#0E1420 66%);
+    box-shadow:0 2cqw 6cqw #00000055, inset 0 0 0 1px #ffffff08;
+    display:grid;grid-template-columns:1.05fr 1fr}
+  .card::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;z-index:2;
+    background:linear-gradient(90deg,#C4B5FD00,#C4B5FD 20%,#67D3C4 80%,#67D3C400)}
+
+  .left{padding:5.6cqw 4.8cqw 5cqw 5.6cqw;display:flex;flex-direction:column;gap:2.4cqw;min-width:0}
+  .eyebrow{font-family:var(--mono);font-size:1.45cqw;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--muted);display:flex;align-items:center;gap:1cqw}
+  .eyebrow .o{color:var(--opus)} .eyebrow .q{color:var(--qwen)}
+  h1{font-size:5.7cqw;line-height:1.05;font-weight:800;letter-spacing:-.02em;text-wrap:balance;max-width:15ch}
+  h1 .hl{color:var(--gold)}
+  .sub{font-size:2.05cqw;line-height:1.5;color:#C3CEDF;font-weight:400;max-width:34ch}
+  .sub b{color:var(--text);font-weight:600}
+  .repo{margin-top:auto;font-family:var(--mono);font-size:1.55cqw;color:var(--muted)}
+  .repo .ver{color:var(--dim)}
+
+  .right{display:flex;align-items:center;padding:4.4cqw 5.2cqw 4.4cqw 0}
+  .term{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:1cqw;
+    padding:2.6cqw 2.8cqw;font-family:var(--mono);box-shadow:inset 0 0 3cqw #00000060}
+  .thead{display:flex;align-items:center;gap:.8cqw;font-size:1.42cqw;color:var(--muted)}
+  .tag{width:.82cqw;height:.82cqw;border-radius:50%}
+  .tag.o{background:var(--opus)} .tag.q{background:var(--qwen)}
+  .arw{color:var(--dim)}
+  .trule{height:1px;background:var(--line);margin:1.9cqw 0}
+  .l{font-size:1.62cqw;line-height:2.0}
+  .p{color:var(--qwen)} .cl{color:var(--opus)}
+  .k{color:var(--gold)} .o2{color:var(--muted)} .ok{color:var(--green);font-weight:700}
+  .b{color:var(--gold);font-weight:700} .dim{color:var(--dim)}
+</style>
+
+<div class="card">
+  <div class="left">
+    <div class="eyebrow"><span class="o">&#9679;</span> Claude Code &nbsp;·&nbsp; hybrid cloud + local <span class="q">&#9679;</span></div>
+    <h1>Local model <span class="hl">offload</span> for Claude Code.</h1>
+    <p class="sub">Let Opus hand tasks to <b>Qwen3.8-27B</b>, or any other local model, from within
+      Claude Code. Hybrid cloud and local mode for <b>token spend optimization</b>.</p>
+    <div class="repo">github.com/3dl-dev/opencode-worker &nbsp; <span class="ver">v0.2.0</span></div>
+  </div>
+
+  <div class="right">
+    <div class="term">
+      <div class="thead"><span class="tag o"></span>Opus <span class="arw">&rarr;</span>
+        <span class="tag q"></span>qwen3.8-27b <span class="dim" style="margin-left:auto">LOCAL</span></div>
+      <div class="trule"></div>
+      <div class="l"><span class="cl">&rsaquo;</span> delegate <span class="dim">build an LRU cache + tests</span></div>
+      <div class="l"><span class="o2">&nbsp;&nbsp;</span><span class="k">qwen</span> writes lru_cache.py, test_lru.py</div>
+      <div class="l"><span class="o2">&nbsp;&nbsp;</span>worker: <span class="b">"built"</span></div>
+      <div class="trule"></div>
+      <div class="l"><span class="cl">&rsaquo;</span> verify <span class="dim">Opus reads the files, runs the tests</span></div>
+      <div class="l"><span class="o2">&nbsp;&nbsp;</span><span class="ok">&check; all tests passed</span></div>
+    </div>
+  </div>
+</div>
