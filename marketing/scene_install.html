@@ -28,6 +28,7 @@
   <div class="cmd"><span class="p">&rsaquo;</span> <span class="g">/plugin marketplace add</span> 3dl-dev/opencode-worker</div>
   <div class="cmd"><span class="p">&rsaquo;</span> <span class="g">/plugin install</span> opencode-worker@opencode-worker</div>
 </div>
-<div class="note">First run: <b>model-setup</b> hosts a local model or configures an API,
-  then stands up the opencode bridge and loads the worker. After that, Opus just delegates.</div>
+<div class="note">First run: <b>model-setup</b> hosts a local model or configures an API, then stands up
+  the opencode bridge and loads the worker. Name it once in your project rules, and Opus routes
+  <b>fan-out work to the worker on its own</b>, no per-task prompting.</div>
 <div class="repo">github.com/3dl-dev/opencode-worker</div>
