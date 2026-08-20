@@ -1,0 +1,32 @@
+<title>install</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  :root{--ink:#0E1420;--panel:#0B1019;--line:#26324A;--text:#EAF0F8;--muted:#9AA7BD;--dim:#6B7A93;
+    --gold:#F5B454;--green:#5FBE8E;--opus:#C4B5FD;--qwen:#67D3C4}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;background:
+    radial-gradient(120% 80% at 100% 0%,#18223666 0%,#0E142000 55%),
+    linear-gradient(160deg,#131C2B 0%,#0E1420 70%)}
+  body{display:flex;flex-direction:column;justify-content:center;gap:4vh;
+    padding:0 8vw;font-family:"Archivo",system-ui,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased}
+  .eyebrow{font-family:"JetBrains Mono",monospace;font-size:2.5vh;letter-spacing:.22em;text-transform:uppercase;color:var(--muted)}
+  h2{font-size:6.4vh;line-height:1.06;font-weight:800;letter-spacing:-.02em}
+  h2 .hl{color:var(--gold)}
+  .box{background:var(--panel);border:1px solid var(--line);border-radius:2.2vh;padding:3.6vh 3.4vh;
+    font-family:"JetBrains Mono",monospace;box-shadow:inset 0 0 4vh #00000060;display:flex;flex-direction:column;gap:2.2vh}
+  .cmd{font-size:2.25vw;line-height:1.4;color:var(--text);white-space:nowrap}
+  .cmd .p{color:var(--dim)} .cmd .g{color:var(--gold);font-weight:700}
+  .or{font-family:"JetBrains Mono",monospace;font-size:2.5vh;color:var(--muted)}
+  .or b{color:var(--text);font-weight:500}
+  .repo{font-family:"JetBrains Mono",monospace;font-size:2.5vh;color:var(--dim)}
+</style>
+<div class="eyebrow">Install in Claude Code</div>
+<h2>Two commands. <span class="hl">Then delegate.</span></h2>
+<div class="box">
+  <div class="cmd"><span class="p">&rsaquo;</span> <span class="g">/plugin marketplace add</span> 3dl-dev/opencode-worker</div>
+  <div class="cmd"><span class="p">&rsaquo;</span> <span class="g">/plugin install</span> opencode-worker@opencode-worker</div>
+</div>
+<div class="or">or drop the two <b>SKILL.md</b> files into <b>~/.claude/skills/</b></div>
+<div class="repo">github.com/3dl-dev/opencode-worker</div>

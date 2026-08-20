@@ -29,6 +29,7 @@ for e in EV:
                 if prev_bash and "test_lru" in (prev_bash or ""):
                     test_out = s.strip()[:40]
 
+W = int(sys.argv[1]) if len(sys.argv) > 1 else 90   # wrap width (narrow for portrait)
 D="\033[2m";CY="\033[38;5;80m";GD="\033[38;5;179m";GR="\033[38;5;114m";VI="\033[38;5;141m";BD="\033[1m";RS="\033[0m"
 def o(s=""): sys.stdout.write(s + "\n"); sys.stdout.flush()
 def clean(s): return s.replace("\\n", " ").replace("**", "").replace("—", ",").replace("`", "").strip()
@@ -39,11 +40,11 @@ o(f"{CY}▸ claude{RS} {D}check the worker is up{RS}")
 o(f"  {D}curl /health · /api/agent{RS}   {GR}status ok · worker agent loaded{RS}")
 o(); time.sleep(1.0)
 o(f"{CY}▸ claude{RS} delegate to the worker {D}(opencode-worker · run){RS}")
-for ln in textwrap.wrap(clean(task), 90)[:4]:
+for ln in textwrap.wrap(clean(task), W)[:4]:
     o(f"  {D}{ln}{RS}"); time.sleep(0.04)
 o(); time.sleep(1.3)
 o(f"  {VI}qwen3.8-27b{RS} {D}worker returns{RS}")
-for ln in textwrap.wrap(clean(worker_final), 90)[:4]:
+for ln in textwrap.wrap(clean(worker_final), W)[:4]:
     o(f"  {ln}"); time.sleep(0.04)
 o(); time.sleep(1.0)
 o(f"{CY}▸ claude{RS} verify {D}(read what it wrote, run the tests){RS}")

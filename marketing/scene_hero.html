@@ -1,0 +1,27 @@
+<title>hero</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+  :root{--ink:#0E1420;--text:#EAF0F8;--muted:#9AA7BD;--dim:#6B7A93;--gold:#F5B454;--opus:#C4B5FD;--qwen:#67D3C4}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;background:
+    radial-gradient(120% 80% at 0% 0%,#18223666 0%,#0E142000 55%),
+    radial-gradient(120% 80% at 100% 100%,#12303055 0%,#0E142000 50%),
+    linear-gradient(160deg,#131C2B 0%,#0E1420 70%)}
+  body{display:flex;flex-direction:column;justify-content:center;gap:5.2vh;
+    padding:0 8.5vw;font-family:"Archivo",system-ui,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased}
+  .eyebrow{font-family:"JetBrains Mono",monospace;font-size:2.5vh;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--muted);display:flex;align-items:center;gap:1.6vh}
+  .eyebrow .o{color:var(--opus)} .eyebrow .q{color:var(--qwen)}
+  h1{font-size:9.6vh;line-height:1.04;font-weight:800;letter-spacing:-.02em;text-wrap:balance}
+  h1 .hl{color:var(--gold)}
+  .sub{font-size:3.5vh;line-height:1.5;color:#C6D1E2;max-width:24ch}
+  .sub b{color:var(--text);font-weight:600}
+  .repo{margin-top:2vh;font-family:"JetBrains Mono",monospace;font-size:2.4vh;color:var(--dim)}
+</style>
+<div class="eyebrow"><span class="o">&#9679;</span> Claude Code &nbsp;·&nbsp; hybrid cloud + local <span class="q">&#9679;</span></div>
+<h1>Local model <span class="hl">offload</span> for Claude Code.</h1>
+<p class="sub">Let Opus hand tasks to <b>Qwen3.8-27B</b>, or any other local model, from within Claude
+  Code. Hybrid cloud and local, for <b>token spend optimization</b>.</p>
+<div class="repo">github.com/3dl-dev/opencode-worker</div>
