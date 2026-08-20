@@ -14,26 +14,31 @@ and every result is checked by execution.
 ## Assets
 
 - `unfurl.html` : 1200x630 social/OG card (open in a browser; export to PNG for the OG image).
-- `promo-linkedin.mp4` : 1080x1350 (4:5). Hero, a real multi-agent session, the savings, install.
+- `promo-linkedin.mp4` : 1080x1350 (4:5). Hero, a real native session, the savings, install.
 - `promo-reddit.mp4` : 1080x1920 (9:16), same sequence.
 
 Sources:
 - `scene_hero.html`, `scene_savings.html`, `scene_install.html` : the designed screens.
-- `capture_cc.py` : drives the real interactive `claude` (via pexpect) to fan three subagent tasks
-  out to the local Qwen worker (one delegation each), then verify each. Recorded with asciinema.
+- `capture_cc.py` : drives the real interactive `claude` (via pexpect). It hands Claude a plain
+  goal plus the offload policy, nothing about how to drive the worker, and lets the skill do the
+  rest. Recorded with asciinema.
 - `cc_session.cast` : that recording. It is the actual Claude Code TUI, not a mockup.
 
 ## How the videos are built
 
 1. Terminal beat: `capture_cc.py` records a genuine Claude Code session (`cc_session.cast`), rendered
-   to a gif with `agg`. You see the real TUI: the Opus/Max banner, three `Called opencode-worker`
-   delegations serialized because Qwen is single-slot, Opus verifying each, and the results table.
+   to a gif with `agg`. Given only "build three small utilities, offload the builds to the local
+   worker, verify each yourself", the skill drives everything on its own: it checks the server and
+   model, confirms the worker agent, delegates each build to the Qwen worker, then independently
+   re-tests every result (catching one of its own bad assertions) before reporting. Serial because
+   the model is served single-slot; the token cost stays off Claude's budget either way.
 2. Designed scenes: `scene_hero.html`, `scene_savings.html`, `scene_install.html` rendered to PNG at
-   the target size with a headless browser (playwright/chromium).
-3. Composed with `ffmpeg`: hero (3s) -> the real session -> savings (4s) -> install (6s), padded to
-   the platform aspect on the ink ground. Social feeds loop it.
+   4:5 with a headless browser (playwright/chromium), then letterboxed onto the ink ground for 9:16
+   so nothing clips.
+3. Composed with `ffmpeg`: hero (5s) -> the real session -> savings (6s) -> install (9s). Social
+   feeds loop it.
 
-Everything shown is real. To re-capture with different tasks, edit the prompt in `capture_cc.py`.
+Everything shown is real. To re-capture with a different task, edit the goal in `capture_cc.py`.
 
 ## Runs on modest hardware
 
