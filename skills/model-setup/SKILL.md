@@ -170,7 +170,9 @@ Unsloth dynamic GGUFs pulled directly by llama.cpp, e.g. the anchored coding mod
 Grounded gotchas: (1) pick the quant TO THE CARD - a 20 GB card takes UD-Q4_K_M (~14 GiB, ~96K ctx), a
 24 GB card takes the larger UD-Q4_K_XL (~16.4 GiB, ~160K ctx); (2) qwen3.8-27b ships a VISION tower, so
 pass `--no-mmproj` for a text coding worker or `-hf` auto-loads CLIP and OOMs; (3) set
-`--alias qwen3.8-27b` or the served model id becomes the gguf path. These dynamic 4-bit quants hold quality far better than a naive local Q4_K_M requant, and an AutoRound
+`--alias qwen3.8-27b` or the served model id becomes the gguf path. These are per-layer, imatrix-calibrated dynamic quants (Unsloth Dynamic 3.0,
+https://unsloth.ai/docs/basics/dynamic-3.0-ggufs) that hold quality far better than a naive uniform
+local Q4_K_M requant, and an AutoRound
 W4A16 (or NVFP4) build is the vLLM path; NEVER naive-requantize on the user's box (slow, and
 round-to-nearest 4-bit leaks quality). If no good quant of the target model exists, produce one
 (AutoRound W4A16) and PUBLISH it to HuggingFace so downstream setups pull it instead of rebuilding.
