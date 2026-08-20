@@ -1,15 +1,14 @@
 import pexpect, sys, time
-PROMPT=("Delegate this to the local qwen worker using the opencode-worker MCP run tool "
-        "(dir /home/baron/projects/opencode-worker/.work/demo), then verify by reading the files "
-        "and running the tests yourself. Task: build lru_cache.py with an LRUCache(capacity) class, "
-        "O(1) get/put via a dict plus a doubly linked list with LRU eviction, and test_lru.py with "
-        "asserts for eviction order, recency on get, and overwrite. Run python3 test_lru.py.")
+PROMPT=("Fan out three separate subagent tasks to the local qwen worker via the opencode-worker run "
+        "tool, one delegation each, do not build them yourself. Dir .work/demo. "
+        "(1) slugify.py: slugify(s) + 2 asserts. (2) chunk.py: chunk(seq,size) + 2 asserts. "
+        "(3) retry.py: retry(fn,n) + 2 asserts. Run each, then summarize each in one line.")
 child = pexpect.spawn("claude --permission-mode bypassPermissions",
-                      encoding="utf-8", dimensions=(46,86), timeout=260)
-child.logfile_read = sys.stdout
-time.sleep(6)
-child.send(PROMPT); time.sleep(0.6); child.send("\r")
-try: child.expect([r"verified independently", r"all tests passed", r"tests passed"], timeout=230)
+                      encoding="utf-8", dimensions=(46,88), timeout=300)
+child.logfile_read = sys.stdout      # forwarded ONLY while pexpect is reading
+time.sleep(9)
+child.send(PROMPT); time.sleep(1.0); child.send("\r")
+# expect(TIMEOUT) reads continuously for the duration -> output reaches the recording
+try: child.expect(pexpect.TIMEOUT, timeout=250)
 except Exception: pass
-time.sleep(4)
 child.sendcontrol('c'); time.sleep(0.5); child.sendcontrol('c'); time.sleep(0.6)

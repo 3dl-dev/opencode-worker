@@ -1,0 +1,33 @@
+<title>savings</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  :root{--ink:#0E1420;--panel:#0B1019;--line:#26324A;--text:#EAF0F8;--muted:#9AA7BD;--dim:#6B7A93;
+    --gold:#F5B454;--green:#5FBE8E;--red:#E5836B;--opus:#C4B5FD;--qwen:#67D3C4}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;background:
+    radial-gradient(120% 80% at 0% 100%,#12303055 0%,#0E142000 55%),linear-gradient(160deg,#131C2B 0%,#0E1420 70%)}
+  body{display:flex;flex-direction:column;justify-content:center;gap:3.6vh;
+    padding:0 8vw;font-family:"Archivo",system-ui,sans-serif;color:var(--text);-webkit-font-smoothing:antialiased}
+  .eyebrow{font-family:"JetBrains Mono",monospace;font-size:2.4vh;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+  h2{font-size:6.2vh;line-height:1.06;font-weight:800;letter-spacing:-.02em}
+  h2 .hl{color:var(--gold)}
+  .rows{display:flex;flex-direction:column;gap:2vh;font-family:"JetBrains Mono",monospace}
+  .r{display:flex;align-items:center;gap:1.6vh;font-size:2.7vh;line-height:1.3}
+  .r .n{color:var(--muted)} .r .a{margin-left:auto;font-weight:700}
+  .r.api .a{color:var(--red)} .r.local .a{color:var(--green)}
+  .r .tag{width:1vh;height:1vh;border-radius:50%}
+  .r.api .tag{background:var(--red)} .r.local .tag{background:var(--green)}
+  .body{font-size:2.5vh;line-height:1.55;color:#C3CEDF;max-width:34ch}
+  .body b{color:var(--text);font-weight:600}
+</style>
+<div class="eyebrow">The multi-agent unlock</div>
+<h2>Fan-out is where it <span class="hl">pays</span>.</h2>
+<div class="rows">
+  <div class="r api"><span class="tag"></span><span class="n">many subagents on Claude</span><span class="a">burns tokens</span></div>
+  <div class="r local"><span class="tag"></span><span class="n">the same tasks on your GPU</span><span class="a">zero tokens</span></div>
+</div>
+<div class="body">Wrapping one task in Opus costs more tokens than doing it yourself. A workflow that
+  hands its <b>many</b> subagent tasks to the local worker keeps all of that work off your token
+  budget.</div>
