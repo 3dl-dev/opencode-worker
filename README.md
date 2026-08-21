@@ -31,6 +31,12 @@ works there. You run no setup commands.
   the OpenCode harness onto it, then drives the worker, gates its permissions under your control,
   steers it mid-run, and returns a binary verdict on the *real* result.
 
+**Run several at once.** The two skills coordinate to fan out N workers concurrently: you name the
+concurrency you need, `model-setup` provisions the serving to fit it (N slots at the full context,
+sharing one KV pool instead of N times the memory), and `opencode-worker` drives them together and
+honest-grades each. On a single-slot endpoint they queue; on a multi-slot one they run in parallel,
+proven live at 3 to 4 workers on a two-GPU rig.
+
 That is the whole user experience: install the skill, ask it to offload a task, approve or steer as
 it goes. The skills carry their own recipe and grade themselves on your setup, and if they can't reach
 the author's quality on your machine, they tell you so instead of quietly doing the wrong thing.

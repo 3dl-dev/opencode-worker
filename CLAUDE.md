@@ -91,10 +91,25 @@ Against `opencode serve` v2 (`/api`):
   `error` = failed turn (with an `error` object). An errored turn does NOT flip any session-level
   flag, so polling the session alone hangs to budget. The driver's `_turn_status`/`overall_status`
   encode this; use them, not `_status_of(session(...))`.
-- Qwen is single-slot (`--parallel 1`): do NOT run two worker sessions at once, they serialize.
-  It runs ~47 tok/s (Q6_K imatrix + MTP draft-mtp speculative decoding, thinking on; the served
-  file is Qwen3.8-27B-Q6_K.gguf, NOT Q8_0 - confirm via `/props` model_path); budget 120s+ per
-  agentic turn.
+- Concurrency is a SERVING-CONFIG property, not a driver limit (re-derive it each session from
+  `/props`, do not freeze it). The driver holds no shared mutable state (`OpenCodeWorker` carries
+  only `self.base`; every method is keyed by the `sid` argument; `run()` uses only locals), so N
+  concurrent `start`/`run` calls are safe by construction. The serializer is the engine's slot
+  config: `GET <model>/props` reports `total_slots` and `default_generation_settings.n_ctx` (the
+  per-slot context ceiling). `--parallel N` WITHOUT `--kv-unified` STATICALLY cuts context to
+  c/N (n_ctx = 65536 at N=4) and is single-tenant in effect; `--parallel N --kv-unified` shares
+  ONE KV pool (n_ctx stays 262144, each request draws up to the full ceiling, continuous batching
+  multiplexes the turns). tests/parallel_test.py asserts `total_slots>=N` and `n_ctx==262144`.
+  As last proven (2026-08-21, live): the deployment runs `--parallel 4 --kv-unified`, /props shows
+  total_slots=4 with per-slot n_ctx=262144, one SHARED 262144 KV pool (VRAM barely rose, not 4x),
+  and 3-4 concurrent worker turns overlap. It is shared-pool multiplexing (each request can reach
+  the full ceiling; the sum of resident sequence lengths is pool-bounded), not vLLM-style
+  independent full windows. The serving axis lives in the target (`settings.serving`) and re-keys
+  the pack when it flips. NOTE the mainframe manifest (k8s/qwen38-llama-serve.yaml) still says
+  `--parallel 1`; the live change is a patch, so canonize it in the manifest (mainframe-e5e) or a
+  re-apply reverts it. It runs ~47 tok/s (Q6_K imatrix + MTP draft-mtp speculative decoding, thinking on; the
+  served file is Qwen3.8-27B-Q6_K.gguf, NOT Q8_0 - confirm via `/props` model_path); budget 120s+
+  per agentic turn.
 - `nvidia-smi` inside the serve container shows "No running processes" and 0% util when idle
   (a PID-namespace artifact + P8 idle state), not a fault. To confirm the GPU is live, sample
   util during a real generation.

@@ -127,9 +127,18 @@ wizard:
 Meet each receiver where they are, from newbie to devoperator; match hand-holding to their level.
 The receiver is the authority on their own environment.
 
-The target you produce is the tuple `(model, quant, endpoint, key-ref)` throughout: the model id,
-its quant (or "api" for a hosted model), the OpenAI-compatible base URL, and the env var NAME that
-holds the API key. LOCAL SERVERS ARE NOT KEYLESS: generate a random API key and require it (see
+The target you produce is the tuple `(model, quant, endpoint, key-ref, serving)` throughout: the
+model id, its quant (or "api" for a hosted model), the OpenAI-compatible base URL, the env var NAME
+that holds the API key, and the SERVING PROFILE you provisioned: `{engine, slots, per-slot-context}`
+(e.g. `{llama.cpp, 4, 262144}`, or `{api, provider-limited, provider-ctx}`). The serving profile is
+the COORDINATION CONTRACT with the worker skill: it provisioned the concurrency the worker will fan
+out into, so the worker sizes and caps its fan-out to `slots` at `per-slot-context` instead of
+guessing. `slots` and `per-slot-context` are set to the receiver's INTENDED fan-out and their
+hardware's KV budget (see Multi-tenancy below), not defaulted. PERSIST the whole tuple with the
+target you hand off (the harness's active-target record), not only in-session, so a SEPARATE worker
+agent reads the provisioned profile rather than re-guessing it. On a CAPTURE, READ the profile from
+the endpoint (`/props` `total_slots` and `default_generation_settings.n_ctx`) rather than setting it.
+LOCAL SERVERS ARE NOT KEYLESS: generate a random API key and require it (see
 PROVISION), so key-ref always names where a real key lives, local or hosted. Never leave a served
 model wide open. On a CAPTURE (a server you did not build) do not generate a key: record the
 receiver's EXISTING key by reference (the env var name they hold it in, never the raw value), and read
@@ -170,7 +179,11 @@ Unsloth dynamic GGUFs pulled directly by llama.cpp, e.g. the anchored coding mod
 Grounded gotchas: (1) pick the quant TO THE CARD - a 20 GB card takes UD-Q4_K_M (~14 GiB, ~96K ctx), a
 24 GB card takes the larger UD-Q4_K_XL (~16.4 GiB, ~160K ctx); (2) qwen3.8-27b ships a VISION tower, so
 pass `--no-mmproj` for a text coding worker or `-hf` auto-loads CLIP and OOMs; (3) set
-`--alias qwen3.8-27b` or the served model id becomes the gguf path. These are per-layer, imatrix-calibrated dynamic quants (Unsloth Dynamic 3.0,
+`--alias qwen3.8-27b` or the served model id becomes the gguf path; (4) if the weights are ALREADY
+LOCAL (an offline or pre-staged box), load by path with `-m <file.gguf>` instead of `-hf`, and you
+MUST add `-ngl 999` to offload all layers to the GPU: `-hf` offloads for you, but a raw `-m` load
+does NOT, so without `-ngl` the layers sit on CPU and the serve crawls at a fraction of GPU speed
+(confirm the split landed on the card with `nvidia-smi`). These are per-layer, imatrix-calibrated dynamic quants (Unsloth Dynamic 3.0,
 https://unsloth.ai/docs/basics/dynamic-3.0-ggufs) that hold quality far better than a naive uniform
 local Q4_K_M requant, and an AutoRound
 W4A16 (or NVFP4) build is the vLLM path; NEVER naive-requantize on the user's box (slow, and
@@ -202,6 +215,42 @@ done. Before hand-off, verify AUTH is really on (the same request FAILS without 
 with it) so the worker can authenticate; a wide-open endpoint is not done. The worker skill then runs
 the opencode end-to-end drive against this handoff.
 
+**Multi-tenancy: serving N workers at once.** How MANY workers the endpoint serves concurrently,
+each at what context, is a provisioning parameter you set on purpose, not a default you inherit.
+Establish it with the receiver alongside the capability floor: one worker, or a fan-out of N. This N
+is the receiver's real concurrent WORKLOAD, the same fan-out the worker skill will drive, so size the
+serving to it and hand back the provisioned `{engine, slots, per-slot-context}` in the target so the
+worker matches it rather than guessing. If the hardware's KV pool cannot give the wanted N at the
+wanted context, that tension surfaces HERE (drop N, drop per-slot context, move to a paged engine, or
+add VRAM), not as a surprise the worker hits at fan-out time. The
+mechanism is CONTINUOUS BATCHING plus a SHARED or PAGED KV cache, and the memory intuition is the
+thing that trips people here, so get it right:
+- The KV budget you sized for one request is a POOL, not a per-worker cost. Under a shared or paged
+  KV cache, concurrent workers DRAW FROM THE ONE POOL, so memory does NOT multiply by N. "3 workers
+  at 256K" does not need 3x the KV of one, it needs the same pool, shared. Do NOT send a receiver to
+  buy a second GPU or move to an API for concurrency their current KV budget already covers: a
+  per-request memory calc (N x weights + N x KV) is the exact wrong turn, because weights are shared
+  and KV is pooled.
+- llama.cpp: `--parallel N` opens N slots and continuous batching (`-cb`, default on) multiplexes
+  them, BUT `--parallel N` ALONE statically cuts each slot to `-c / N` (the c/N trap: 4 slots at
+  `-c 262144` become 65536 each). Add `--kv-unified` (`-kvu`) for ONE shared pool where each slot
+  keeps the full `-c` and the sum of resident sequence lengths is what the pool bounds. Grounded
+  live: `--parallel 4 --kv-unified` on a 44 GB two-card rig serves 4 slots at the full 262144 with
+  the KV pool barely above the single-request size.
+- vLLM / SGLang: PagedAttention / RadixAttention give per-request paged windows (each request
+  independently up to max-model-len), stronger than llama.cpp's shared pool when N workers must each
+  hold a LARGE resident context at once; the cost is a heavier runtime and a requant (FP8/AWQ).
+  Choose the llama.cpp shared pool for the common fan-out of many short tasks; choose a paged engine
+  when N workers each need a big context resident simultaneously.
+VERIFY concurrency as honestly as reachability: `/props` (llama.cpp) must report `total_slots >= N`
+AND `default_generation_settings.n_ctx` == the full context (a per-slot n_ctx below full is the c/N
+split, NOT built), then fire N concurrent completions and confirm they OVERLAP in wall-clock and all
+return. Give a thinking model a GENEROUS max_tokens on this check: a reasoning model can spend a
+small budget entirely on thinking and return empty CONTENT (finish reason `length`), which is a
+budget artifact, not a concurrency failure, so judge overlap and a real finish, not just non-empty
+text. A single-slot endpoint that serializes N requests is not multi-tenant; say so rather than
+dressing serial as concurrent.
+
 ## Carried environment profiles (source)
 
 The runtime stacks the profile matching the receiver's environment; add profiles as environments
@@ -213,7 +262,15 @@ The GPUs are **owned by k3s**, so the rail is fixed: you do NOT launch a raw loc
 by scaling the model's k8s deployment (e.g. `kubectl scale deploy/<serve> --replicas=1`), wait for
 health at the served endpoint, and scale back to 0 when done. "Trying a different model" here means
 swapping the deployment's served model, not spawning llama.cpp yourself. Bring the rail up only
-when it is free; yield it when other work needs the cards.
+when it is free; yield it when other work needs the cards. For multi-tenancy, the concurrency lever
+is the deployment's serve ARGS, not a separate server: patch them to `--parallel N --kv-unified`
+(the deployment's Recreate strategy reloads the model, ~90s), then verify `total_slots >= N` at full
+`n_ctx` on `/props`. kubectl is the rail's control surface here; on a bare box the same `--parallel N
+--kv-unified` goes straight on the `llama-server` line instead. AUTH on the rail: the served endpoint
+is a NodePort reachable only on the trusted cluster LAN, which is the our-stack exception to the
+generate-a-key invariant (the network gates it, not a key). State that posture explicitly at
+hand-off, and if the receiver wants key auth anyway, add `--api-key <key>` to the serve args in the
+same patch; do NOT report the endpoint as authed when it is actually keyless-but-network-gated.
 
 ### single-gpu workstation (one local accelerator)
 A box with one GPU, the common "weaker than a rig" user. Bootstrap missing deps if the box is bare
@@ -228,7 +285,12 @@ KV-bound and sustains materially less context (grounded: a 20 GB card runs qwen3
 ~160K ceiling at ~40 tok/s, 22.5/24G; both q8_0 KV, text-only via `--no-mmproj`), which is the honest
 single-card limit. Less than a
 usable single card (CPU-only, a few-GB card) cannot host a model worth delegating to at a useful
-context: steer to an API provider.
+context: steer to an API provider. For multi-tenancy on one card, add `--parallel N --kv-unified` to
+the `llama-server` line: N workers then SHARE the card's one KV pool rather than each reserving a
+full context, so N is bounded by pool-size divided by how much context each worker actually needs,
+not by N times the full window. A single card can serve several concurrent short-task workers this
+way; it cannot serve several that each hold a huge context at once (that is the paged-engine / more-
+VRAM case).
 
 ## Binds (resolve on the receiver; a missing required one is cannot-build)
 
@@ -249,15 +311,20 @@ context: steer to an API provider.
 - Clear the CAPABILITY FLOOR: never present a reachable but underpowered model as built. Probe it
   with a real task, or name the ceiling and steer to better hardware or an API. A toy that pings is
   not a win.
+- If the receiver wants N concurrent workers, provision AND verify multi-tenancy: `/props`
+  `total_slots >= N` at the full per-slot `n_ctx`, plus a real overlapping concurrent request. Never
+  leave it single-slot-serial, and never quote per-worker KV memory as if the pool multiplied by N.
 
 ## Acceptance: a reachable model, real and sampled (known-state)
 
 Acceptance is a known state, not text pairs: **built** when the MODEL ENDPOINT answers a real
 completion AND clears the capability floor (a small real task in the receiver's domain, executed and
 checked, not just a trivial ping), the endpoint REQUIRES its generated key (auth on, not wide open) so
-the worker can authenticate, and the `(model, quant, endpoint, key-ref)` is named for hand-off (the
-opencode end-to-end drive is the WORKER skill's verification against this handoff, not a step
-model-setup performs: its job ends at a reachable, authed, capable endpoint);
+the worker can authenticate, and the full `(model, quant, endpoint, key-ref, serving)` is named for
+hand-off (the serving profile `{engine, slots, per-slot-context}` included, so the worker fans out to
+what was provisioned; the opencode end-to-end drive is the WORKER skill's verification against this
+handoff, not a step model-setup performs: its job ends at a reachable, authed, capable endpoint
+provisioned to the receiver's intended concurrency);
 **underpowered** when the endpoint is reachable but even the anchored floor model cannot run
 usefully on the hardware (too little VRAM for weights plus useful KV), named, with the ceiling and what would lift it (a bigger or
 second GPU, or an API provider) stated plainly and never dressed up as built; **cannot-build** when a

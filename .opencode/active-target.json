@@ -1,5 +1,5 @@
 {
-  "key": "model=qwen3.8-27b;quant=Q6_K;harness=opencode;settings=e486f67c;env=None",
+  "key": "model=qwen3.8-27b;quant=Q6_K;harness=opencode;settings=5f44fc7a;env=None",
   "agent": "opencode-worker",
   "pack_dir": "packs/qwen3.8-27b__q6_k__opencode",
   "model": {
@@ -11,6 +11,11 @@
     "context": 262144,
     "thinking": true,
     "spec_decode": "draft-mtp",
+    "serving": {
+      "engine": "llama.cpp",
+      "kv": "unified",
+      "slots": 4
+    },
     "permission": {
       "edit": "ask",
       "bash": "ask",

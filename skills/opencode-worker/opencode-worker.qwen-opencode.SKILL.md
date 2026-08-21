@@ -9,6 +9,7 @@ description: Delegate a scoped, independently-verifiable agentic task from Claud
 > - Target delta: `qwen-opencode` (measured corrections, stamped below)
 > - Transfer grade (this target): not yet measured
 
+
 <!-- What ships vs what runs at runtime -->
 This is the CANONICAL (target-agnostic) source. It carries what Claude needs to drive an
 OpenCode worker and honest-grade it: the protocol core, the drive loop, the honest-grade harness,
@@ -122,10 +123,26 @@ check whether `opencode serve` is running with the worker agent loaded and a rea
 so, use it. If NOT:
 - Ensure a reachable MODEL first. If there is none, INVOKE the **model-setup** skill (host local /
   configure API / capture an already-served model); it hands back a model endpoint and its
-  `(model, quant, key-ref)`. Do NOT stand up inference yourself; that is model-setup's job.
-- Then install `opencode` if absent, configure its provider to point at that model endpoint, start
-  `opencode serve` from a project root, and compile + load the worker agent (its system prompt is
-  the protocol below).
+  `(model, quant, key-ref, serving)`. Do NOT stand up inference yourself; that is model-setup's job.
+  Tell model-setup the CONCURRENCY you need (how many workers you intend to fan out, at what context)
+  so it provisions the serving to fit; the `serving` profile it returns (`{engine, slots,
+  per-slot-context}`) is what you size and cap your fan-out to below. That is the coordination: you
+  name the concurrent workload, model-setup fits the substrate to it, you fan out to what it
+  provisioned. If your workload later needs more parallelism or context than the profile provides,
+  that is a RE-PROVISION request back to model-setup, not something you force on the driver. When the
+  two skills run as SEPARATE agents, the `serving` profile (and the rest of the target) is not an
+  in-session value: persist it where the harness records its active target (a target/handoff record
+  the setup step writes and the worker step reads), so the worker sizes to what was actually
+  provisioned rather than re-guessing.
+- Then install `opencode` if absent, configure its provider to point at that model endpoint (an
+  OpenAI-compatible provider in `opencode.json`: `{npm:"@ai-sdk/openai-compatible",
+  options:{baseURL:<endpoint>, apiKey:<key-ref>}, models:{<model-id>:{}}}`), start `opencode serve`
+  from a project root, and COMPILE + load the worker agent. Compiling the agent is writing the file
+  `.opencode/agent/<name>.md` UNDER that project root: YAML frontmatter carrying the target's
+  permission gating and sampling (see the permission facts in the drive loop), then the protocol
+  body below verbatim as the system prompt. The server loads agents at STARTUP ONLY (no hot reload,
+  and `{file:...}` is not expanded), so write the file first, then (re)start `opencode serve` from
+  that root, and confirm it loaded via `GET /api/agent`.
 
 Compose model-setup by invoking the skill, never by reaching into its internals. This split means
 the same model setup seams under any harness: a future `pi-worker` or `hermes-worker` bootstraps
@@ -176,20 +193,42 @@ task's acceptance as an independent check YOU run on the real result (a file's c
 exit, a service's health). Outcome is binary: **built** only if every check passes; otherwise
 **honest-failure**, tear down partial state, report faithfully. Never relabel a failing check.
 
-## Target delta (qwen-opencode, measured; binding during rebuild and run)
-
-Stamped from the qwen-opencode target profile: how THIS model mis-follows any skill, not this
-skill's content. Treat these as binding while you rebuild and run.
-
-1. **A failing check is honest-failure. Never argue past it.** Measured: given a skill whose
-   check genuinely failed, this model relabeled the outcome "done" on its own judgment that the
-   result "looked right", and left the non-compliant result standing. The check result is the
-   authority; one failing check means honest-failure, full stop. If you believe the check itself
-   is wrong, say so as a finding, but still report honest-failure.
-2. **Resolve with the plainest probes; do not characterize the environment beyond what the task
-   asks.** Measured: this model reached for broad probes (reading `/proc`, `/etc`, `/dev`;
-   scanning for un-named tools) that trip the permission gate and, unattended, abort the run.
-   Use only the plain commands the task calls for.
+**Multi-tenancy: fan out N workers at once.** Sessions are independent, so you can run N
+concurrently from one orchestrator. Each worker is its own `ses_...` with its own working
+directory: give each a DISTINCT scratch dir under the project root so they never collide. The
+drive side holds no shared state across sessions, so concurrent `start`/drive is safe by
+construction; the real parallelism ceiling is set by the SERVING SUBSTRATE, which you check, never
+assume.
+- KNOW THE CEILING. It is the `serving` profile model-setup provisioned for the concurrency you
+  asked for (`{engine, slots, per-slot-context}`); VERIFY the live substrate matches it, do not just
+  trust the handoff. `GET <model-endpoint>/props` (the model's OpenAI-compatible endpoint, the base
+  URL your opencode provider points at in opencode.json, NOT the opencode server) reports
+  `total_slots` (how many requests the engine generates in parallel) and
+  `default_generation_settings.n_ctx` (the per-slot context ceiling); these should equal the profile.
+  N is your number of independent tasks; open a session per task regardless. `total_slots` sets the
+  generation parallelism to EXPECT, it is not a cap on sessions: do not promise generation-parallelism
+  the substrate cannot give, and if you need more than the profile provisioned, re-provision through
+  model-setup. Two regimes:
+  - `total_slots >= N` with `n_ctx` == the full model context (llama.cpp `--parallel N
+    --kv-unified`, or a paged-KV engine like vLLM/SGLang): N turns generate simultaneously, each
+    with the full context. True multi-tenancy.
+  - `total_slots == 1` (or `< N`): the orchestration still overlaps (N sessions open, gates
+    interleave, short tasks all finish fast) but the engine SERIALIZES token generation behind the
+    slot, so you get concurrency of orchestration, not of generation; long turns queue. Trap:
+    llama.cpp `--parallel N` WITHOUT `--kv-unified` STATICALLY cuts each slot to `n_ctx = c/N`, so
+    adding slots there costs context per request instead of adding full-context throughput. If you
+    need N truly-parallel full-context workers and /props shows one slot, the fix is the SERVING
+    config (unified-KV N-slot, or a paged-KV engine), not the driver.
+- DRIVE with ONE interleaved loop, never N sequential drives. Start all N turns first (a plain
+  prompt each), then poll in a single loop that on each ~1s tick services `GET
+  /api/session/{id}/permission` for EVERY open session and advances each from its own newest
+  assistant `finish`. A per-session sequential drive stalls the others: their bash/edit gates fire
+  in tight windows at low tok/s and the whole batch times out. One pass over all live sessions per
+  tick.
+- GRADE the batch, not just each worker. Honest-grade every worker independently against its own
+  check, then report the aggregate: built-rate (how many of N built) and honest-outcome-rate (how
+  many DONE claims matched ground truth). The batch is built only if every worker built; otherwise
+  name which failed. One worker's DONE never vouches for another.
 
 ## Binds (resolve on the receiver; a missing required one is cannot-build)
 
@@ -212,6 +251,8 @@ skill's content. Treat these as binding while you rebuild and run.
 - Never trust the worker's self-report; grade the real result with an independent check.
 - Binary outcome: built only if every check passes, else honest-failure. Never relabel.
 - Permission gates are authoritative: approve or reject explicitly; never assume approval.
+- Fanning out N workers: size N to the substrate's `/props total_slots`, drive all sessions in
+  one interleaved poll loop, and report the batch built-rate, not just per-worker outcomes.
 - Subscription-safe: only the local opencode server and the model endpoint; never reroute
   Claude Code's auth.
 
@@ -236,6 +277,22 @@ The rebuild drives the worker up the rungs it can; unreached rungs are honest-bl
 
 Held back for the ship-time transfer score: a novel rung at each level the rebuild did not see.
 Extend the ladder upward as targets get stronger; do not invent rungs a target cannot yet reach.
+
+## Target delta (qwen-opencode, measured; binding during rebuild and run)
+
+Stamped from the qwen-opencode target profile: how THIS model mis-follows any skill, not this
+skill's content. Treat these as binding while you rebuild and run.
+
+1. **A failing check is honest-failure. Never argue past it.** Measured: given a skill whose
+   check genuinely failed, this model relabeled the outcome "done" on its own judgment that the
+   result "looked right", and left the non-compliant result standing. The check result is the
+   authority; one failing check means honest-failure, full stop. If you believe the check itself
+   is wrong, say so as a finding, but still report honest-failure.
+2. **Resolve with the plainest probes; do not characterize the environment beyond what the task
+   asks.** Measured: this model reached for broad probes (reading `/proc`, `/etc`, `/dev`;
+   scanning for un-named tools) that trip the permission gate and, unattended, abort the run.
+   Use only the plain commands the task calls for.
+
 
 ## The real acceptance: the user's workflow, sampled just-in-time
 

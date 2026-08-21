@@ -29,10 +29,23 @@ DEFAULT_MODEL = {"providerID": "mainframe-qwen38", "id": "qwen3.8-27b"}
 # external tools ask (the driver decides), read-only tools stay allowed so the worker can explore
 # without gate spam. `spec_decode` records the MTP draft mode (lossless speedup, part of the
 # declared config). Compiled into the agent frontmatter by scripts/build_agent.py.
+# `serving` is the ENGINE axis of the target: which inference engine multiplexes concurrent
+# sessions, and how it manages the KV cache. It keys the pack (a different engine / KV mode is a
+# different target that must be re-graded), and tests/parallel_test.py checks the LIVE substrate
+# (via /props) against what multi-tenancy needs. Re-derive it from /props, do not treat it as
+# frozen. As last proven (2026-08-21, live on qwen38-llama-serve): `kv=unified, slots=4` gives
+# multi-tenancy: `--parallel 4 --kv-unified` reports total_slots=4 with per-slot n_ctx=262144 (the
+# full ceiling), one SHARED 262144 KV pool (VRAM barely rose, not 4x), continuous batching over the
+# slots. Each request can draw up to the full ceiling; the sum of resident sequence lengths is
+# bounded by the pool, so it is shared-pool multiplexing, not vLLM-style independent full windows.
+# The single-tenant failure mode is `kv=split, slots=1` (or `--parallel N` WITHOUT `--kv-unified`,
+# which statically cuts each slot to c/N). A paged-KV engine (sglang/vllm) is another value that
+# would give independent per-request windows. Any of these re-keys the pack and needs a fresh grade.
 DEFAULT_SETTINGS = {
     "context": 262144,
     "thinking": True,
     "spec_decode": "draft-mtp",
+    "serving": {"engine": "llama.cpp", "kv": "unified", "slots": 4},
     "permission": {"edit": "ask", "bash": "ask", "webfetch": "ask",
                    "websearch": "ask", "external_directory": "ask"},
 }
