@@ -46,8 +46,8 @@ connector stays a clean driver that assumes a target exists.
   describe it, and the viable directions (capture / local / API). No side effects.
 - **DECIDE (target selection).** Pick local-vs-API and the concrete `(model, quant, settings)`.
   Quant-fitting is a real heuristic: largest quant that fits VRAM with the desired KV cache (data
-  points in `mainframe/docs/ops/qwen38-serve.md`: Q6_K weights 23.5 GB, 262K KV in 44 GB with
-  q8_0 KV). This is where the product-scope decisions live (below).
+  points: Q6_K weights 23.5 GB, 262K KV in 44 GB with q8_0 KV). This is where the product-scope
+  decisions live (below).
 - **PROVISION (install/serve).** Install opencode if absent. Local: pull the GGUF (MTP-bearing
   quant where available), start the server, wait healthy. API: write the opencode provider config
   with the user's key. Subscription-safe throughout: Claude Code's own auth is never rerouted.

@@ -19,7 +19,7 @@ every result is honest-graded.
   plus an offload policy runs preflight, delegates each build to the worker, and honest-grades with
   zero step-by-step direction (proven 2026-08-20; capture in `marketing/cc_session.cast`).
 - The blocker to parallelism is the **serving config**, not the skill. Today Qwen is served by the
-  k3s deployment `qwen38-llama-serve` with `llama-server -c 262144 --parallel 1` (GGUF Q6_K).
+  the llama.cpp serve deployment with `llama-server -c 262144 --parallel 1` (GGUF Q6_K).
 
 ## Core finding (the research this is based on)
 
@@ -36,7 +36,7 @@ every result is honest-graded.
     computed once and reused across all concurrent calls. Fan-out is its best case.
   - **vLLM (PagedAttention + automatic prefix caching)** is the equivalent, slightly less specialized
     for the shared-prefix pattern.
-- Honest scope, so nobody expects a flag flip: this is a **serving swap on the mainframe rail**.
+- Honest scope, so nobody expects a flag flip: this is a **serving swap on the GPU serving substrate**.
   Different quant (FP8 ~27 GB or AWQ ~15 GB, NOT the current GGUF Q6_K). Spec-decode must be
   re-tuned (both engines have MTP/EAGLE paths; not drop-in). On the 3090 + A4500 (44 GB) a 27B at
   FP8/AWQ plus a paged KV pool fits; achievable concurrency is roughly KV-pool-tokens divided by
@@ -44,12 +44,12 @@ every result is honest-graded.
 
 ## Work, in two layers (route correctly)
 
-1. **Serving substrate (mainframe-owned).** Stand up SGLang serving Qwen3.8-27B (AWQ first) with
-   paged KV, a 262K max-model-len ceiling, and prefix caching, on the k3s GPU rail, OpenAI-compatible
+1. **Serving substrate (infra-owned).** Stand up SGLang serving Qwen3.8-27B (AWQ first) with
+   paged KV, a 262K max-model-len ceiling, and prefix caching, on the GPU serving host, OpenAI-compatible
    endpoint. Verify: several concurrent requests each able to reach 262K, prefix reuse active, and a
-   real wall-clock win versus serial. Replaces `qwen38-llama-serve`. Runbook:
-   `mainframe/docs/ops/qwen38-serve.md`. Yield the cards when VAT2 needs them. This likely lands as a
-   `mainframe` item; wire the cross-repo rd ref.
+   real wall-clock win versus serial. Replaces the current llama.cpp serve deployment. The serving
+   runbook lives in the serving-infra repo (pointer in `CLAUDE.local.md`). Yield the cards when other
+   workloads need them. This likely lands as a serving-infra item; wire the cross-repo rd ref.
 2. **Skill and driver multi-tenancy (this repo).**
    - Retire the single-slot assumption. CLAUDE.md line "Qwen is single-slot (`--parallel 1`): do NOT
      run two worker sessions at once, they serialize" becomes false; re-derive it from the live
@@ -81,14 +81,15 @@ every result is honest-graded.
   stays behind the same local endpoint; never route Claude Code through a gateway.
 - **Honest grade.** The worker's DONE is not evidence; verify with your own check. Outcome is binary.
 - **Target is a parameter.** OpenCode, Qwen, and now the serving engine are values, not fixtures.
-- No em-dashes in anything Baron reads. Commit only when asked; branch off main.
-- Cross-repo: `dap` owns the spec (`docs/specs/opencode-worker-integration.md`, section 7b is the
-  co-optimization loop), `skillc` owns the skill build and grade, `mainframe` owns Qwen serving.
+- No em-dashes in anything a human reads. Commit only when asked; branch off main.
+- Cross-repo: the design spec is owned in a separate repo (section 7b is the co-optimization
+  loop; pointer in `CLAUDE.local.md`), `skillc` owns the skill build and grade, and the serving
+  substrate is owned by the serving-infra repo.
 
 ## First step
 
-Run `tests/smoke.py` to confirm the environment. Read the spec section 7b and
-`mainframe/docs/ops/qwen38-serve.md`. Then decide serving-first (stand up SGLang AWQ, then make the
+Run `tests/smoke.py` to confirm the environment. Read the design spec section 7b and the serving
+runbook (pointers in `CLAUDE.local.md`). Then decide serving-first (stand up SGLang AWQ, then make the
 driver concurrency-safe against the real multiplexing engine) versus driver-first (prove
 concurrency-safety against llama.cpp `--parallel N` as a throwaway harness, accepting the temporary
 context cut, then swap). Recommendation: serving-first, so the driver is exercised against the engine

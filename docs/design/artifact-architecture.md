@@ -1,7 +1,8 @@
 # Artifact architecture: two sides, one target-keyed worker pack
 
 Status: design of record for THIS repo's artifact layout, 2026-08-17. A plan, re-derive
-against the code; the spec of record stays `dap:docs/specs/opencode-worker-integration.md`.
+against the code; the spec of record is owned in a separate design repo (pointer in
+`CLAUDE.local.md`).
 
 ## The shape
 
