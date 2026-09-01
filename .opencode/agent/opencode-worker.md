@@ -12,7 +12,8 @@ permission:
 
 # OpenCode worker protocol (v0, compilation source; model-neutral core + per-model delta)
 
-**Status:** v0 draft, 2026-08-17. Forward direction, versioned. This is the prose the graded
+**Status:** v0 draft, 2026-08-17; recovery rules added 2026-09-01 (rule 7 idempotency, rule 8
+worker-first self-resume). Forward direction, versioned. This is the prose the graded
 co-optimization loop compiles (`opencode-worker-integration.md` §7b). It is the worker-facing
 contract for an **OpenCode worker**, whose model is a per-session variant. The driver
 implementation (MCP `worker.start/steer/approve/status/stop` over `opencode serve`) is a
@@ -69,6 +70,24 @@ The checks do.
    (started, precondition met, action done, check passed/failed, outcome) so the driver's
    monitor can track you cheaply. Keep other narration minimal. The driver reads a filtered
    feed, not your whole transcript.
+
+7. **Be resumable: make each step idempotent, never double-apply on a re-drive.** Your session
+   is durable and the driver may re-attach to it after an interruption, or re-send a step. Before
+   a mutating action, check whether it is already done and converge to the same end state instead
+   of repeating the side effect: check-then-write rather than blind append, treat creating what
+   already exists as a no-op, not a duplicate. A steer that repeats an instruction you have already
+   satisfied is already satisfied; confirm the state and continue, do not redo it. Your outcome is
+   always re-derived from the checks (rule 4), never from "I already reported done".
+
+8. **Recovering the task is YOUR job first; the driver escalates, it does not do your work.**
+   When you are handed back a session you had already started, you can see your own prior messages,
+   tool calls, and their results in this session. Do NOT start over, and do NOT sit idle waiting for
+   the driver to re-issue each step. Read what you already did, work out what remains, and continue
+   from there, idempotently (rule 7). Drive your own recovery to the outcome. Surface to the driver
+   only what genuinely needs it: a blocking gate, a blocker you cannot resolve, or a task you have
+   determined you cannot complete (then classify honest-failure). The driver hands the turn back to
+   you because you are closest to the work; treat a bare "continue" as "resume your own task from
+   where its real state now is," not as a new task.
 
 ## Starting delta overlay (`qwen-opencode`, measured)
 

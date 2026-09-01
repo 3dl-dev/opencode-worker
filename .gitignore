@@ -7,3 +7,7 @@ opencode-serve.log
 # Local, machine-specific instructions and live state (never checked in)
 CLAUDE.local.md
 CLAUDE.*.local.md
+
+# recovery self-test scratch + live session handoff (never checked in)
+.selftest/
+.opencode/worker-sessions.json

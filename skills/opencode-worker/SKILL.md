@@ -152,11 +152,18 @@ v2 `/api` prefix: write `POST /api/session`, not `POST /session` (a bare `/sessi
 or 404s). Unwrap the top-level `data` key on every `/api` response.**
 - Create a session: `POST /api/session {agent, model:{providerID,id}, location:{directory}}`; bind
   it to the worker agent by name. The response `data.id` is the `ses_...` session id used below.
+  The `{providerID, id}` are not yours to guess. In practice the reliable source is the resolved
+  target record the setup seam wrote, `.opencode/active-target.json` (and on recovery, the handoff
+  record's `target`). Do NOT count on live discovery: `GET /api/provider` can list the provider with
+  an empty `models: []`, and the model endpoint's `/props` gives a `model_path`, not the opencode
+  model id. Read the id from the active-target / handoff record.
 - START the turn with a PLAIN prompt (this is what begins the turn): `POST /api/session/{id}/prompt
   {prompt:{text}}`, the task only, never the protocol. Do NOT set `delivery:"steer"` on the first
   prompt: a steer only injects into an ALREADY-running turn and will not start one, so a fresh
   session given a steer just sits idle at zero tokens. If a turn does not start, you sent a steer,
-  not a plain prompt.
+  not a plain prompt. Caveat: the server may ECHO `"delivery":"steer"` back in the response even for
+  a plain prompt that DID start a turn, so the echoed `delivery` field is not a reliable start
+  signal: confirm the turn started by polling for a new assistant turn, not by trusting the echo.
 - Poll turn state from the NEWEST assistant message's `finish`: `tool-calls` = mid-turn (keep
   polling), `stop`/`length` = done, `error` = failed turn. `GET /api/session/{id}/message` returns
   a list of items each shaped `{id, type, time:{created}, finish, content:[...], ...}`. `type`
@@ -174,12 +181,37 @@ or 404s). Unwrap the top-level `data` key on every `/api` response.**
   JSON-parse it. If the LIST endpoint errors (opencode can fail to serialize a permission), the
   gate is unreadable: do NOT treat that as "no gates"; the worker is blocked on something you
   cannot answer, so escalate rather than proceed. A gated worker waits.
+- KNOW WHAT ACTUALLY GATES (grounded, verified by direct reject-tests). Gateable: `bash` (shell),
+  `external_directory` (leaving the sandbox), `read` (file reads, yes, reads gate here despite
+  "read-only allowed"), `webfetch`, `websearch`. NOT gateable, BOTH verified: `write` (new-file
+  creation) AND `edit` (modifying an EXISTING file) go through with no mutation gate, only a
+  preceding `read` gates, and if you approve that read for legitimate work the mutation slips
+  through. `write` is not even a valid permission key (adding it makes opencode drop the WHOLE
+  ruleset). So there is NO file-mutation gate at all: a worker can freely CREATE and MODIFY files
+  inside its working directory. Hold the safety line by CONFINEMENT, not by a mutation gate that
+  does not exist: give each worker its own clean scratch dir under the server root (never a dir
+  holding files you care about), and rely on `external_directory` gating to keep it in. Never build
+  a control that depends on rejecting a `write` or `edit`; the reliable can't-proceed lever is
+  rejecting `bash`. (The `/api/agent` `permission` field can read `null` even while gating enforces;
+  confirm enforcement by watching a gate fire, not by that field.)
 - Steer an ALREADY-running turn: `POST /api/session/{id}/prompt {prompt:{text}, delivery:"steer"}`.
-  Halt a running turn: `POST /api/session/{id}/interrupt`. Tear a finished session down when you
-  are done with it: `DELETE /api/session/{id}` (returns HTTP 200).
+  Halt a running turn: `POST /api/session/{id}/interrupt` (returns 204, but note it does NOT flip the
+  turn to a terminal `finish`; see the turn-timeout caveat below). `DELETE /api/session/{id}` is
+  effectively a NO-OP here: it returns HTTP 200 with the web-UI HTML body, and the session plus its
+  messages STILL answer `GET` afterward. Do not rely on it to tear a session down or to force a
+  session "gone"; teardown is tracked only by the handoff record's `status`.
+- BOUND EVERY TURN BY A WALL-CLOCK TIMEOUT. `finish` is not guaranteed to reach a terminal value: a
+  turn whose gate you REJECT, or that you `interrupt`, can sit at `finish:null` indefinitely (the
+  interrupt 204 does not set `stop`/`error`). So never wait on `finish` alone; cap each turn at a
+  budget (120s+ per agentic turn for a slow local model) and treat exceeding it as the turn being
+  done-or-stuck, to be graded / escalated, not waited on forever.
 - Read the reply: the `text` parts of the newest assistant item, i.e. the entries with
   `type == "text"` in that item's `content` list. The parts array is named `content` (not `parts`);
-  it also holds `reasoning` and `tool` parts, which you skip.
+  it also holds `reasoning` and `tool` parts, which you skip for the reply. A `tool` part is shaped
+  `{type:"tool", state:{status, input, ...}}`: read `state.status` (`running`/`completed`) to tell a
+  step's progress and `state.input` for its args. Do NOT rely on a `tool`/name field to identify the
+  call: it comes back absent/`None` in this build, so classify by the input keys instead (`command`
+  = bash, `path` = a file write).
 
 **The honest grade (the whole point).** The worker's DONE is a claim, not evidence. Define the
 task's acceptance as an independent check YOU run on the real result (a file's content, a test's
@@ -218,10 +250,117 @@ assume.
   assistant `finish`. A per-session sequential drive stalls the others: their bash/edit gates fire
   in tight windows at low tok/s and the whole batch times out. One pass over all live sessions per
   tick.
+- KEEP THE SLOTS FULL, the win is OCCUPANCY not per-stream speed. Measured on a 3-slot shared-KV
+  engine: one-session-at-a-time driving leaves ~2 of 3 slots idle and the GPU parked ~half the
+  wall-clock (Claude verifies/sets up the next task while nothing generates). So: (a) run
+  `total_slots` workers at once and refill each slot the instant one finishes (a work-stealing queue,
+  never drain to zero then restart); (b) OVERLAP orchestration with generation, pre-create and
+  pre-prompt the next session BEFORE you finish bookkeeping on the last, so the model runs B/C while
+  you handle A. Do not chase GPU SM-util as the saturation signal: token decode is
+  memory-bandwidth-bound and tops out ~40-55% SM even when fully busy; occupancy (slots busy / total)
+  and aggregate tok/s are the real signals. Realistic gain from filling the idle + batching is
+  ~3-4x on an independent task bag, ~2x on a dependent chain (idle-removal only), never the full Nx.
 - GRADE the batch, not just each worker. Honest-grade every worker independently against its own
   check, then report the aggregate: built-rate (how many of N built) and honest-outcome-rate (how
   many DONE claims matched ground truth). The batch is built only if every worker built; otherwise
   name which failed. One worker's DONE never vouches for another.
+
+## Two modes: task-scoped, and ambient offload (loaded taskless)
+
+How you load this skill sets how it runs.
+
+- **Task-scoped** (loaded WITH a task): delegate that one unit to a worker, drive it (below), return
+  its result. If you or the user want it verified, honest-grade it (see the grade section); that is a
+  workflow choice, not something this mode forces.
+- **Ambient offload** (loaded TASKLESS): loading with no task installs a standing policy for the
+  session, local workers become a SUBAGENT SUBSTRATE. Whenever you would fan out delegable subagent
+  work, route the eligible units to local workers over `opencode serve` and integrate their outputs
+  exactly as you would any subagent's. Specifics:
+  - **Scale to the substrate, and DRAIN the overflow, do not drop it.** Read the LIVE ceiling
+    `GET <model-endpoint>/props` `total_slots` (re-derive each session, never assume). Dispatch up to
+    `total_slots` workers concurrently; hold the rest in a queue. Then keep the slots SATURATED: your
+    one interleaved poll loop, on each tick, services every live worker's gates AND, the moment a
+    worker finishes and frees a slot, pulls the next queued unit and starts it, until the queue is
+    empty. Overflow is not "fire and forget", a unit you neither dispatched nor drained is a DROPPED
+    unit (a real failure mode). If you would rather not queue, send the overflow to your own
+    subagents instead, but every unit must land somewhere. Never exceed the live ceiling.
+  - **Eligibility is a dispatch judgment, not a grade.** Route work scoped and self-contained enough
+    for the target model; keep reasoning- or judgment-heavy work on your own subagents. When unsure
+    it is your call, the same one you make choosing any subagent.
+  - **Gates stay (safety, not verification), but know their real reach.** Workers raise gates on
+    `bash` (shell), `external_directory` (escaping the sandbox), and `read`; service scoped ones and
+    surface the rest. But FILE MUTATIONS DO NOT GATE: both `write` (new files) and `edit` (modifying
+    existing files) go through ungated (verified), so a worker can freely create and change files
+    inside its working directory with no gate. Hold the line by confinement, not by a gate that is
+    not there: give each worker its own CLEAN scratch dir under the project root (never a directory
+    holding files you care about, since ungated writes/edits can create or clobber them), and rely on
+    `external_directory` gating to keep it from escaping. A gate is about not letting a subagent
+    escape its sandbox or run shell, not about checking its answer.
+  - **No forced grade.** The output returns like any subagent's. Whether it gets verified is the
+    caller's workflow, identical to a normal subagent; this skill does not police it. Baking a
+    mandatory orchestrator-side grade into every offloaded unit spends back the compute the offload
+    just saved, and defeats the point.
+
+Honest-grade is therefore NOT a per-unit runtime tax in either mode. It is (a) mandatory when
+GROUNDING this skill (you are measuring transfer, the worker's word is not evidence), and (b)
+available in production when you or the user want a verified outcome. Producing local-model compute
+as subagents is the capability; verifying the output is a separate, caller-owned choice.
+
+## Recovery: worker-first, you are the fallback
+
+You can be interrupted (your context lost, your process restarted) while a worker turn is still in
+flight. Recovery is re-attaching to the SAME session and HANDING THE WORK BACK TO THE WORKER, which
+resumes its own task from its own session history (protocol rules 7-8). You do NOT reconcile and
+re-drive the task step by step by default: that burns the orchestrator's (subscription) budget on
+work the local worker exists to absorb. You re-attach and hand back; you escalate only when the
+worker genuinely cannot.
+
+- PERSIST THE HANDLE AT START, durably, outside your own context, at a FIXED path a cold
+  orchestrator knows to look at without having seen your run: `.opencode/worker-sessions.json`
+  under the server's project root (sibling of `.opencode/active-target.json`). It is a single
+  JSON object keyed by session id, rewritten in place (NOT append-only, so there is never a stale
+  duplicate to disambiguate):
+  ```
+  {"sessions": {"ses_ABC": {"sid":"ses_ABC", "target":{...}, "workdir":"<abs path>",
+                            "task":"<the task text>", "acceptance":"<how you will check it>",
+                            "status":"open"}}}
+  ```
+  On start, upsert the record with `"status":"open"`. On teardown, set `"status":"torn_down"` (or
+  delete the key); teardown is tracked HERE, not by a 404 (an opencode `DELETE` may soft-archive and
+  still answer `GET`). The `sid` in your context is volatile; this file, at this exact path and
+  shape, is how a fresh orchestrator finds the live sessions again. A record's `target` carries
+  `model:{providerID,id}`, so a cold reader re-attaches without rediscovering the provider.
+- ON RESUME, HAND BACK TO THE WORKER FIRST. Load `.opencode/worker-sessions.json`; for each record
+  with `"status":"open"`, read the newest assistant `finish` (by max `time.created`) to judge state,
+  then:
+  - `tool-calls` (still mid-turn): the worker is paused, almost always on a permission gate. Service
+    the pending gate(s) and the worker CONTINUES ITS OWN TURN. Do not reconstruct or redo its steps;
+    just unblock it and let it finish.
+  - `stop` / `length` but your acceptance check does not yet pass: the turn stopped short. RE-PROMPT
+    THE SAME SESSION with a brief hand-back, not a re-issue of the steps: e.g. "Continue the task.
+    You can see your prior actions in this session; check what you already did before acting, and do
+    not restart." The worker self-resumes from its own history, idempotently. You are handing back,
+    not driving.
+  - `error` (an interrupted or failed turn): treat it as STOPPED-SHORT, not as a dead session. An
+    interrupt leaves real work in the ledger and the session fully alive; hand back with the same
+    "continue" nudge and the worker resumes from where its state actually is. (Do NOT read the
+    top-of-file "`error` = failed turn" as "give up": that describes turn state, not session death.)
+    Only after a hand-back ALSO returns `error` with no new progress do you treat the worker as
+    stuck and escalate. Budget: one hand-back; escalate on the second consecutive no-progress turn.
+- ESCALATE (do the heavier work yourself) ONLY when the worker cannot: the session is genuinely gone
+  (the server has no such session), or the worker is stuck (looping, repeatedly failing the same
+  check, or over your time/token budget), or a gate needs a decision only you can make. Only then do
+  you restart in a fresh session or abort honest-failure. Escalation is the exception, not the path.
+- THE LEDGER IS FOR YOUR JUDGEMENT, NOT FOR REPLAYING INTO THE WORKER. `opencode serve` persists
+  sessions, messages, and tool-call parts durably (they survive a server restart, not just yours),
+  so `GET /api/session/{id}/message` is the authoritative record you read to DECIDE: is the turn
+  still going (newest item's `finish`), and is the worker making progress or stuck (walk EVERY
+  assistant item's `content` for `tool` parts and results, not just the newest, which often holds
+  only summary `text`). You read it to judge and to grade, not to reconstruct the task on the
+  worker's behalf.
+- RE-GRADE, NEVER REMEMBER. The outcome is always re-derived from your independent check on the real
+  result now. A prior "built" is a claim from a context you no longer trust; verify it, do not skip
+  the check because it "was" done.
 
 ## Binds (resolve on the receiver; a missing required one is cannot-build)
 
@@ -237,6 +376,9 @@ assume.
   a broken sandbox and fails. Use a scratch subdir INSIDE the server's project root. Required.
 - **Model credentials** (only if the target is API-backed): by reference (an env key name),
   never a value. Optional, target-dependent.
+- **A durable handoff record** under the project root carrying each open session's `{sid, target,
+  workdir, task, acceptance}`, so a restarted orchestrator can re-attach and reconcile instead of
+  restarting tasks. Required for any long or fanned-out run.
 
 ## Checks (every run obeys)
 
@@ -248,6 +390,10 @@ assume.
   one interleaved poll loop, and report the batch built-rate, not just per-worker outcomes.
 - Subscription-safe: only the local opencode server and the model endpoint; never reroute
   Claude Code's auth.
+- Record each session handle durably at start; on resume, re-attach and HAND BACK to the worker
+  (service its gate, or nudge it to continue) so it self-resumes; escalate to reconcile/restart
+  yourself only when it genuinely cannot; always re-grade with your own check, never trust a prior
+  DONE.
 
 ## The ladder (shipped bar; known-good states, not text pairs)
 
@@ -270,6 +416,83 @@ The rebuild drives the worker up the rungs it can; unreached rungs are honest-bl
 
 Held back for the ship-time transfer score: a novel rung at each level the rebuild did not see.
 Extend the ladder upward as targets get stronger; do not invent rungs a target cannot yet reach.
+
+## Recovery grounding (portable self-test, run in situ)
+
+Recovery must hold on the RECEIVER's environment, not only where it was authored: setup diversity
+(hardware, model, quant, harness) is the variable we are trying to survive, so this proof runs
+HERE, on whatever box the skill landed on, and honest-grades in situ. Run it once the worker
+target is reachable. Each dimension is built only on your OWN ground-truth check; a dimension you
+genuinely cannot reach is honest-blank, never faked. Route a divergence like any grounding
+finding: an opencode API / drive-loop fact goes to THIS skill; a worker mis-follow (double-applying
+a step, arguing past a check) goes to the target's delta overlay.
+
+Run each dimension END-TO-END yourself in one pass: you set up the perturbation and then recover
+from it. The discipline is self-imposed and it is the point: to set up you may hold a sid, but the
+MOMENT you have written the handoff record and "dropped" a sid, you re-attach ONLY from the durable
+record, never from a sid still in your notes. Express ONLY this skill: if a step you need is not
+specified here, that gap IS the finding, name it, do not fill it from outside knowledge. A clean
+result is reproducible from this skill alone in this environment; if it only worked because you
+supplied something the skill did not, say so.
+
+1. **Worker self-resume, mid-turn (the load-bearing one).** Start a worker on a small task, and as
+   soon as it is mid-turn, hand off: write its record to `.opencode/worker-sessions.json` and drop
+   the sid. "Mid-turn" = a permission gate is pending on `GET /api/session/{id}/permission`; note an
+   in-flight message can sit at `finish:null` until it finalizes, so key off the pending gate, do
+   not wait for `finish` to read `tool-calls`. Recover as a COLD orchestrator would, using
+   ONLY the handoff file (never a sid you held): re-attach and just SERVICE THE PENDING GATE, then
+   watch the worker FINISH ITS OWN TURN. Built = the task's own check passes AND the completing tool
+   calls in the ledger are the WORKER's (you only unblocked it; you did not reconstruct or redo any
+   step). Stopped-short variant: if the worker stops before your check passes, re-prompt a bare
+   "continue" (not a re-issue of the steps); built = it resumes from its own history and finishes
+   with no duplicated work.
+2. **Opus escalation only when the worker cannot.** Force a genuine can't-recover condition and
+   confirm the orchestrator ESCALATES correctly: aborts honest-failure (or restarts fresh) on the
+   right trigger and ONLY then. The RELIABLE, uncheatable trigger is to REJECT a gate on a
+   BASH-INHERENT action, one whose only path is a shell command (e.g. the task's success requires a
+   value only runtime execution can produce, so the worker MUST run `bash` and you reject it): the
+   gated action never happens, the turn cannot complete, and this doubles as a test that the worker
+   honors a denial (rule 2). It MUST be bash-inherent: rejecting a FILE MUTATION does NOT block the
+   worker, because NEITHER `write` (new files) NOR `edit` (modifying existing files) gate here (only
+   `bash`, `external_directory`, and `read` do), so a reject-the-write-or-edit trigger lets the
+   mutation slip through and produces a FALSE can't-recover. Do NOT use these other broken triggers either:
+   "delete the session" is a no-op (`DELETE` does not remove it); and an "impossible task" with a
+   secret acceptance value is DEFEATED by a resourceful honest worker that greps and reads your
+   grader source, so it passes honestly instead of failing. Built = escalation fires on the
+   reject-driven can't-recover condition and NEVER as the default path (quietly escalating a worker
+   that could
+   have self-resumed is a FAILURE of this dimension).
+3. **Idempotency (worker rule 7).** After a step has completed (e.g. a file written), RE-SEND that
+   same instruction (re-prompt or steer it again). Built = the end state is unchanged: no duplicate
+   side effect (one copy of the content, no doubled counter, no repeated append). Ground-check the
+   actual state, not the worker's word.
+4. **Fan-out recovery.** Start N workers (size N to `/props total_slots`), record all N in the
+   handoff file, drop every sid, then recover the whole batch from the file alone (worker-first for
+   each) and honest-grade each. Built = every recovered worker's own check passes and the batch
+   built-rate is reported.
+5. **Server-restart ledger** (OPERATOR/CI ONLY, do NOT run this autonomously on a box whose server
+   you do not own; skip it honest-blank unless you control the server). With a worker mid-turn (real
+   `tool` parts already in its message log), restart `opencode serve` from the project root, then
+   `GET /api/session/{id}/message`. Built = the session and its tool-call parts reload intact (the
+   ledger survived the SERVER, not just your orchestrator), so the worker can be handed back and
+   resume.
+6. **Up the ladder.** Run dimensions 1 and 3 at more than one rung (at least function+test and
+   bug-to-green), not only the trivial rung, so worker self-resume is proven where the worker does
+   real multi-step work.
+
+7. **Ambient offload (mode, not recovery).** Load the skill TASKLESS, then hand yourself a batch of
+   M independent delegable units with M greater than the live slot ceiling. Built (a GROUNDING grade,
+   here you DO verify because you are measuring the skill, not doing production work) = the eligible
+   units actually ran on LOCAL WORKERS (the worker session ledger shows them, with at most
+   `total_slots` running at once and never more), their outputs came back and were integrated, the
+   overflow went to your own subagents or a queue, and any reasoning-heavy unit was (correctly) kept
+   off the worker. Grade by inspecting WHERE each unit ran (a worker session in the ledger vs your
+   own subagent), not by trusting a claim. Note the distinction this dimension itself tests: you
+   grade HERE because you are grounding; ambient production use does not grade each unit.
+
+Report a per-dimension honest grade, and at ship the transfer score against the reference
+(`loss = score(reference) - score(target)`) on these same dimensions: that is what tells us how
+recovery holds on THIS environment versus where it was tuned.
 
 ## The real acceptance: the user's workflow, sampled just-in-time
 
