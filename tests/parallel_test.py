@@ -10,7 +10,7 @@ third:
      and the N sessions are DISTINCT (no cross-session state bleed in the driver). The driver holds
      no mutable state beyond `self.base`, so this must hold; the test is the standing proof.
 
-  2. SERVING multi-tenancy invariant (the substrate must provide it; mainframe owns the config).
+  2. SERVING multi-tenancy invariant (the substrate must provide it; the serving deployment config owns it).
      Read the model endpoint's /props. Assert total_slots >= N AND the per-slot context ceiling
      (default_generation_settings.n_ctx) == the full model context. This is the machine-checkable
      "no static c/N cut": llama.cpp `--parallel N` WITHOUT `--kv-unified` reports n_ctx = c/N
@@ -33,7 +33,7 @@ Prereqs (same as tests/smoke.py):
 Env:
   OPENCODE_BASE     driver -> opencode server (default http://127.0.0.1:47611/api)
   MODEL_PROPS_URL   model endpoint /props for the serving invariant
-                    (default http://192.168.2.43:30801/props, the mainframe qwen rail)
+                    (default http://127.0.0.1:30801/props; set this to your served endpoint)
   PARALLEL_N        number of concurrent workers (default 3)
 Exit 0 on PASS.
 """
@@ -45,7 +45,7 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 from opencode_worker import OpenCodeWorker, DEFAULT_TARGET, resolve_artifacts  # noqa: E402
 
 BASE = os.environ.get("OPENCODE_BASE", "http://127.0.0.1:47611/api")
-PROPS_URL = os.environ.get("MODEL_PROPS_URL", "http://192.168.2.43:30801/props")
+PROPS_URL = os.environ.get("MODEL_PROPS_URL", "http://127.0.0.1:30801/props")
 N = int(os.environ.get("PARALLEL_N", "3"))
 # The full context ceiling this target must preserve per request (no c/N cut). Sourced from the
 # declared target settings so it tracks the pack, not a magic number.

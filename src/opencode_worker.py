@@ -21,8 +21,8 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # settings are SIBLING axes (OpenCode rejects extra keys inside `model`), so the worker pack can
 # still be keyed by them.
 DEFAULT_MODEL = {"providerID": "mainframe-qwen38", "id": "qwen3.8-27b"}
-# Ground truth of the live endpoint (confirmed via /props model_path + mainframe/docs/ops/
-# qwen38-serve.md): the served weights are Qwen3.8-27B-**Q6_K** imatrix GGUF, run with MTP
+# Ground truth of the live endpoint (confirmed via /props model_path): the served weights are
+# Qwen3.8-27B-**Q6_K** imatrix GGUF, run with MTP
 # speculative decoding (`--spec-type draft-mtp`, ~47 tok/s, draft acceptance 0.69). NOT Q8_0 -
 # the unsloth Q8_0 carries no MTP head. The pack is quant/settings sensitive, so this must match.
 # Serving/behavior settings that key the pack. `permission` is OUR-side gating: the mutating and
@@ -33,7 +33,7 @@ DEFAULT_MODEL = {"providerID": "mainframe-qwen38", "id": "qwen3.8-27b"}
 # sessions, and how it manages the KV cache. It keys the pack (a different engine / KV mode is a
 # different target that must be re-graded), and tests/parallel_test.py checks the LIVE substrate
 # (via /props) against what multi-tenancy needs. Re-derive it from /props, do not treat it as
-# frozen. As last proven (2026-08-21, live on qwen38-llama-serve): `kv=unified, slots=4` gives
+# frozen. As last proven (2026-08-21, live): `kv=unified, slots=4` gives
 # multi-tenancy: `--parallel 4 --kv-unified` reports total_slots=4 with per-slot n_ctx=262144 (the
 # full ceiling), one SHARED 262144 KV pool (VRAM barely rose, not 4x), continuous batching over the
 # slots. Each request can draw up to the full ceiling; the sum of resident sequence lengths is

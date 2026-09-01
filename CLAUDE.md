@@ -1,6 +1,7 @@
 # CLAUDE.md: opencode-worker
 
 Project-specific instructions. OS-level protocol is inherited from `~/.claude/CLAUDE.md`.
+Local environment specifics and live execution state live in `CLAUDE.local.md` (gitignored).
 
 ## What this is
 
@@ -8,36 +9,21 @@ A connector that lets **Claude Code (Opus, on the Max subscription) delegate sco
 work to a local OpenCode worker** driving an arbitrary model (Qwen3.8-27B is target #1). It
 runs over the tool boundary (the local `opencode serve` HTTP API), so it never touches the
 Claude subscription auth. The worker-facing protocol is cross-compiled per target by
-skillc, and a graded transfer score proves the retarget. Full rationale and the decision
-trail: `dap:docs/specs/opencode-worker-integration.md` (the spec of record).
-
-## Continue here (execution pointer, 2026-08-17)
-
-State, as raw observations (re-verify, do not treat as frozen):
-- The connector works end to end. Proven live against `opencode serve` 1.18.18 + Qwen3.8-27B:
-  plumbing, agentic multi-step, live mid-turn steer, our-side permission gating, and a first
-  graded episode that scored 3/3 with a correct honest-outcome. Evidence scripts in
-  `tests/evidence/`; the re-runnable check is `tests/smoke.py`.
-- The driver is `src/opencode_worker.py` (library + Bash connector CLI).
-
-Immediate next step (pick up here): run `tests/smoke.py` to confirm the environment, then
-advance one of the "Next" items below. The highest-value next work is the graded
-co-optimization loop: run more real tasks, and route each divergence to either the per-model
-delta overlay or the driver protocol (see the spec, section 7b).
+skillc, and a graded transfer score proves the retarget. The full rationale and decision
+trail live in the design spec (pointer in `CLAUDE.local.md`).
 
 ## Environment and how to run
+
+Local endpoint details (provider name, model endpoint, how to bring the served model up and
+down) are environment-specific and live in `CLAUDE.local.md`.
 
 - Start the server FROM THE REPO ROOT so it loads the worker agent: `cd <repo> && opencode
   serve --port 47611 --hostname 127.0.0.1 &`. The protocol is that agent's system prompt; if you
   edit `protocol/opencode-worker-protocol.md`, re-run `python3 scripts/build_agent.py` and restart
   the server (agents load at startup only, no hot reload).
-- Provider (already in `~/.config/opencode/opencode.json`): `mainframe-qwen38`, model
-  `qwen3.8-27b`, pointing at the local endpoint `http://192.168.2.43:30801/v1`.
-- Bring the model up only if the GPU rail is free (it holds both GPUs and does not preempt;
-  scale back to 0 when done, and yield when VAT2 needs the cards):
-  `kubectl scale deploy/qwen38-llama-serve --replicas=1` ... `--replicas=0`
-  Health: `curl -s http://192.168.2.43:30801/health`. Runbook:
-  `mainframe/docs/ops/qwen38-serve.md`.
+- Configure a provider in `~/.config/opencode/opencode.json` pointing at your served model
+  endpoint, then bring that model up. The concrete provider/endpoint for this box is in
+  `CLAUDE.local.md`.
 - Smoke tests: `python3 tests/smoke.py` (library path), `python3 tests/mcp_smoke.py` (MCP stdio
   path), `python3 tests/agent_smoke.py` (protocol-via-agent). All expect the server up (from the
   repo root), the model served, and the worker agent loaded.
@@ -100,16 +86,13 @@ Against `opencode serve` v2 (`/api`):
   c/N (n_ctx = 65536 at N=4) and is single-tenant in effect; `--parallel N --kv-unified` shares
   ONE KV pool (n_ctx stays 262144, each request draws up to the full ceiling, continuous batching
   multiplexes the turns). tests/parallel_test.py asserts `total_slots>=N` and `n_ctx==262144`.
-  As last proven (2026-08-21, live): the deployment runs `--parallel 4 --kv-unified`, /props shows
-  total_slots=4 with per-slot n_ctx=262144, one SHARED 262144 KV pool (VRAM barely rose, not 4x),
-  and 3-4 concurrent worker turns overlap. It is shared-pool multiplexing (each request can reach
-  the full ceiling; the sum of resident sequence lengths is pool-bounded), not vLLM-style
-  independent full windows. The serving axis lives in the target (`settings.serving`) and re-keys
-  the pack when it flips. NOTE the mainframe manifest (k8s/qwen38-llama-serve.yaml) still says
-  `--parallel 1`; the live change is a patch, so canonize it in the manifest (mainframe-e5e) or a
-  re-apply reverts it. It runs ~47 tok/s (Q6_K imatrix + MTP draft-mtp speculative decoding, thinking on; the
-  served file is Qwen3.8-27B-Q6_K.gguf, NOT Q8_0 - confirm via `/props` model_path); budget 120s+
-  per agentic turn.
+  When proven live it is shared-pool multiplexing (each request can reach the full ceiling; the
+  sum of resident sequence lengths is pool-bounded), not vLLM-style independent full windows. The
+  serving axis lives in the target (`settings.serving`) and re-keys the pack when it flips. If a
+  serving deployment's manifest still pins `--parallel 1`, a live patch to `--parallel N
+  --kv-unified` reverts on re-apply unless canonized in the manifest. A Q6_K + speculative-decode
+  Qwen3.8-27B turn runs on the order of tens of tok/s with thinking on; budget 120s+ per agentic
+  turn (concrete live numbers for this box are in `CLAUDE.local.md`).
 - `nvidia-smi` inside the serve container shows "No running processes" and 0% util when idle
   (a PID-namespace artifact + P8 idle state), not a fault. To confirm the GPU is live, sample
   util during a real generation.
@@ -123,7 +106,7 @@ Against `opencode serve` v2 (`/api`):
   route Claude Code through a gateway/router (that needs API billing, not the subscription).
 - **Target is a parameter.** `(model, harness, environment)`, none fixed. OpenCode and Qwen
   are values #1, not fixtures. `resolve_artifacts(target)` keys artifacts by the full target.
-- **No em-dashes** in anything Baron reads (he reads them as AI-generated). Use commas/colons.
+- **No em-dashes** in anything a human reads (they read as AI-generated). Use commas/colons.
 - **Commit only when asked.** Branch off `main` for new work.
 
 ## Repo map
@@ -169,8 +152,8 @@ README.md                              overview + usage
 4. Grow the graded co-optimization loop: more tasks/targets, routing divergences to the model
    delta overlay or the driver protocol; record earned transfer grades per target.
 5. Bundle for distribution via skillc (the self-building skill compiler + grounding).
-6. Not this repo: rebalance the Qwen tensor-split toward the 3090 (a `mainframe` k8s tuning
-   item; the A4500 is the bottleneck under 0.57/0.43).
+
+(Environment-specific follow-ups, e.g. serving/hardware tuning, are tracked in `CLAUDE.local.md`.)
 
 ## Skill build + test (the process; follow it, do not re-derive)
 
@@ -196,21 +179,21 @@ agent assembly, no committed script) whenever the source changes.
 **Test (ouroboros / grounding). A fix is not proven until re-grounded.** Ground the COMPILED file
 (the source, and each variant): spawn a FRESH agent (Agent tool, `general-purpose`, NOT a fork)
 given ONLY that one `SKILL.md` path and told to read nothing else in the repo. Live env: `opencode
-serve` up from the repo root, the worker agent loaded, a model served (bring Qwen up per the
-runbook). Have it delegate a small independently-verifiable task and honest-grade it; it reports
-built / honest-failure / cannot-build and where the file left it guessing. Route each finding: an
-opencode API / drive-loop fact is SKILL CONTENT -> the source; a model-mis-follow habit (relabeling
-a failed check, over-probing) is a TARGET DELTA -> `skillc/seed/targets/<target>.md`. Re-stamp the
-variant, re-ground. The transfer grade is `loss = score(claude reference) - score(target)` on the
-same tasks.
+serve` up from the repo root, the worker agent loaded, a model served (bring the model up per
+`CLAUDE.local.md`). Have it delegate a small independently-verifiable task and honest-grade it; it
+reports built / honest-failure / cannot-build and where the file left it guessing. Route each
+finding: an opencode API / drive-loop fact is SKILL CONTENT -> the source; a model-mis-follow habit
+(relabeling a failed check, over-probing) is a TARGET DELTA -> `skillc/seed/targets/<target>.md`.
+Re-stamp the variant, re-ground. The transfer grade is `loss = score(claude reference) -
+score(target)` on the same tasks.
 
 **Public-copy invariant.** No em-dashes (unicode `—` or prose ` -- `), and run the
 `avoid-ai-writing` pass over the README + skills before any release.
 
 ## Relationships
 
-- `dap` owns the spec (`docs/specs/opencode-worker-integration.md`, `opencode-worker-protocol.md`).
 - `skillc` owns the skill build, cross-compile, and grounding (the comparative transfer grade,
   `loss = score(reference) - score(target)`); target profiles live in `skillc/seed/targets/`
-  (the `qwen-opencode` target is already seeded). (These moved out of `hoistable` into `skillc`.)
+  (the `qwen-opencode` target is already seeded).
 - This repo owns the connector implementation and its packaging as a skill.
+- The design spec is owned in a separate repo; its pointer is in `CLAUDE.local.md`.

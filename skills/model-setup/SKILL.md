@@ -8,8 +8,8 @@ This file ships the **wizard method and the kit**, not a fixed procedure baked t
 discovery, provisioning, and grounding all happen at RUNTIME, in the receiver's session, against
 the receiver's actual environment, which only they and their machine can reveal. We carry the
 method (look / infer / ask / guide), the carried environment profiles (source), and the
-reachability check. Our k3s stack is the environment this kit is validated against and one carried
-profile; it is not a template every receiver matches.
+reachability check. A Kubernetes (k3s) GPU-cluster stack is one carried, grounded environment
+profile validated against; it is not a template every receiver matches.
 
 This skill's job ends at a reachable MODEL. Wiring a specific harness (OpenCode, etc.) to that
 model is the worker skill's job, so the same model setup seams cleanly under any harness.
@@ -257,7 +257,7 @@ The runtime stacks the profile matching the receiver's environment; add profiles
 are grounded. New environments are handled by the method above and grounded from what is learned,
 never invented.
 
-### our-stack (k3s GPU rail; the environment this kit is validated against)
+### k8s-gpu-cluster (a Kubernetes GPU-rail profile, validated against)
 The GPUs are **owned by k3s**, so the rail is fixed: you do NOT launch a raw local model. Provision
 by scaling the model's k8s deployment (e.g. `kubectl scale deploy/<serve> --replicas=1`), wait for
 health at the served endpoint, and scale back to 0 when done. "Trying a different model" here means
@@ -267,7 +267,7 @@ is the deployment's serve ARGS, not a separate server: patch them to `--parallel
 (the deployment's Recreate strategy reloads the model, ~90s), then verify `total_slots >= N` at full
 `n_ctx` on `/props`. kubectl is the rail's control surface here; on a bare box the same `--parallel N
 --kv-unified` goes straight on the `llama-server` line instead. AUTH on the rail: the served endpoint
-is a NodePort reachable only on the trusted cluster LAN, which is the our-stack exception to the
+is a NodePort reachable only on the trusted cluster LAN, which is this profile's exception to the
 generate-a-key invariant (the network gates it, not a key). State that posture explicitly at
 hand-off, and if the receiver wants key auth anyway, add `--api-key <key>` to the serve args in the
 same patch; do NOT report the endpoint as authed when it is actually keyless-but-network-gated.
