@@ -470,7 +470,7 @@ supplied something the skill did not, say so.
    handoff file, drop every sid, then recover the whole batch from the file alone (worker-first for
    each) and honest-grade each. Built = every recovered worker's own check passes and the batch
    built-rate is reported.
-5. **Server-restart ledger** (OPERATOR/CI ONLY — do NOT run this autonomously on a box whose server
+5. **Server-restart ledger** (OPERATOR/CI ONLY, do NOT run this autonomously on a box whose server
    you do not own; skip it honest-blank unless you control the server). With a worker mid-turn (real
    `tool` parts already in its message log), restart `opencode serve` from the project root, then
    `GET /api/session/{id}/message`. Built = the session and its tool-call parts reload intact (the
