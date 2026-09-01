@@ -46,6 +46,10 @@ DEFAULT_SETTINGS = {
     "thinking": True,
     "spec_decode": "draft-mtp",
     "serving": {"engine": "llama.cpp", "kv": "unified", "slots": 4},
+    # NOTE (grounded 2026-09-01): the `write` tool (new-file creation) is NOT gated by `edit`, and
+    # `write` is NOT an accepted permission key here (adding it makes opencode drop the WHOLE ruleset).
+    # So new-file writes cannot be gated per-tool in this opencode version; only `edit` (modify
+    # existing) and `bash` gate. This is an open safety-model gap, tracked, not yet solved.
     "permission": {"edit": "ask", "bash": "ask", "webfetch": "ask",
                    "websearch": "ask", "external_directory": "ask"},
 }
@@ -225,7 +229,10 @@ class OpenCodeWorker:
         return self._req("GET", f"/session/{sid}")
 
     # --- orchestration -----------------------------------------------------
-    def run(self, task, directory, target=None, approve=lambda p: "once", poll=3.0, budget=600,
+    # poll=1.0: a 3.0s loop (grounded 2026-09-01) added up to 3s of dead tail to BOTH turn-completion
+    # detection AND every permission-gate service, parking the GPU between turns; the server is local
+    # and the GETs are cheap, so 1s cuts that latency and compounds under fan-out. Do not go sub-0.5s.
+    def run(self, task, directory, target=None, approve=lambda p: "once", poll=1.0, budget=600,
             agent=None):
         """Run a task to completion. `approve(permission)->decision` is the policy hook the
         driver routes to the Opus loop / operator. Prints one filtered line per event."""
